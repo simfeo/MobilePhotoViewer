@@ -298,6 +298,11 @@ public:
 		bool hasOrientation() const;    // Return true if (roll,yaw,pitch) is available
 		bool hasSpeed() const;          // Return true if (speedX,speedY,speedZ) is available
 	} GeoLocation;
+
+
+	uint32_t MicroVideo;
+	uint32_t MicroVideoVersion;
+	uint32_t MicroVideoOffset;
 };
 
 } // namespace TinyEXIF

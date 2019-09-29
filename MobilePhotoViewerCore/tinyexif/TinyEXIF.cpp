@@ -1095,7 +1095,27 @@ int EXIFInfo::parseFromXMPSegmentXML(const char* szXML, unsigned len) {
 			}
 			return false;
 		}
+
+
+		static bool Value(const tinyxml2::XMLElement* document, const char* name, uint32_t& value) {
+			const char* szAttribute = document->Attribute(name);
+			if (szAttribute == NULL) {
+				const tinyxml2::XMLElement* const element(document->FirstChildElement(name));
+				if (element == NULL || (szAttribute = element->GetText()) == NULL)
+					return false;
+			}
+			value = strtoul(szAttribute, NULL, 0); return true;
+			return false;
+		}
 	};
+	const char* attrMicro(document->Attribute("GCamera:MicroVideo"));
+	if (attrMicro)
+	{
+		ParseXMP::Value(document, "GCamera:MicroVideo", MicroVideo);
+		ParseXMP::Value(document, "GCamera:MicroVideoVersion", MicroVideoVersion);
+		ParseXMP::Value(document, "GCamera:MicroVideoOffset", MicroVideoOffset);
+	}
+
 	const char* szAbout(document->Attribute("rdf:about"));
 	if (0 == _tcsicmp(Make.c_str(), "DJI") || (szAbout != NULL && 0 == _tcsicmp(szAbout, "DJI Meta Data"))) {
 		ParseXMP::Value(document, "drone-dji:AbsoluteAltitude", GeoLocation.Altitude);
