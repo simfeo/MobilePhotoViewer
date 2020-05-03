@@ -1,11 +1,12 @@
 #include "frameless.h"
-#include "ui_formless.h"
+#include "ui_frameless.h"
+#include "Widgets/titlewidget.h"
 
 #include <QCloseEvent>
 
 FormLess::FormLess(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::FormLess)
+    ui(new Ui::Frameless)
 {
     ui->setupUi(this);
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);

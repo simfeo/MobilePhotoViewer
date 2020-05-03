@@ -4,7 +4,7 @@
 #include <QWidget>
 
 namespace Ui {
-class FormLess;
+class Frameless;
 }
 
 class FormLess : public QWidget
@@ -25,7 +25,7 @@ private slots:
     void on_minimize_clicked();
 
 private:
-    Ui::FormLess *ui;
+    Ui::Frameless *ui;
 };
 
 #endif // FORMLESS_H

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>FormLess</class>
- <widget class="QWidget" name="FormLess">
+ <class>Frameless</class>
+ <widget class="QWidget" name="Frameless">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0">
    <property name="spacing">
     <number>1</number>
    </property>
@@ -48,7 +48,7 @@
        <number>0</number>
       </property>
       <item alignment="Qt::AlignTop">
-       <widget class="QWidget" name="title" native="true">
+       <widget class="TitleWidget" name="title" native="true">
         <property name="enabled">
          <bool>true</bool>
         </property>
@@ -243,7 +243,7 @@
   	border: 0px none palette(base);
 }</string>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout" stretch="">
+        <layout class="QVBoxLayout" name="verticalLayout">
          <property name="spacing">
           <number>0</number>
          </property>
@@ -270,6 +270,14 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TitleWidget</class>
+   <extends>QWidget</extends>
+   <header>Widgets/titlewidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="famelesswindow.qrc"/>
  </resources>
