@@ -2,6 +2,7 @@
 #define FORMLESS_H
 
 #include <QWidget>
+#include <QPixmap>
 
 namespace Ui {
 class Frameless;
@@ -15,13 +16,14 @@ public:
     explicit FormLess(QWidget *parent = nullptr);
     ~FormLess();
 
+public:
+    void setTitleName(const QString& appname);
+    void setIcon(const QPixmap& icon);
+
 private slots:
     void on_close_clicked();
-
     void on_maximize_clicked();
-
     void on_restore_clicked();
-
     void on_minimize_clicked();
 
 private:
