@@ -31,6 +31,8 @@ private slots:
     void on_restore_clicked();
     void on_minimize_clicked();
 
+    void childMouseEvent(QMouseEvent* event);
+
 private:
     bool leftBorderHit(const QPoint &pos);
     bool rightBorderHit(const QPoint &pos);

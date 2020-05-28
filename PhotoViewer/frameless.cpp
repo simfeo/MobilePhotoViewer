@@ -25,6 +25,7 @@ FormLess::FormLess(QWidget *parent)
     setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint);
 #endif
     connect(ui->title, &TitleWidget::doubleClicked, this, &FormLess::on_maximize_clicked);
+    connect(ui->title, &TitleWidget::parentEvent, this, &FormLess::childMouseEvent);
     ui->restore->hide();
     setMouseTracking(true);
     QApplication::instance()->installEventFilter(this);
@@ -70,6 +71,44 @@ void FormLess::on_minimize_clicked()
 {
     showMinimized();
     mousePressed = false;
+}
+
+void FormLess::childMouseEvent(QMouseEvent *event)
+{
+    if (isMaximized())
+    {
+        return;
+    }
+
+    // check mouse move event when mouse is moved on any object
+    if (event->type() == QEvent::MouseMove)
+    {
+        QMouseEvent *pMouse = dynamic_cast<QMouseEvent *>(event);
+        if (pMouse)
+        {
+            checkBorderDragging(pMouse);
+        }
+    }
+    // press is triggered only on frame window
+    else if (event->type() == QEvent::MouseButtonPress)
+    {
+        QMouseEvent *pMouse = dynamic_cast<QMouseEvent *>(event);
+        if (pMouse)
+        {
+            mousePressEvent(pMouse);
+        }
+    }
+    else if (event->type() == QEvent::MouseButtonRelease)
+    {
+        if (mousePressed)
+        {
+            QMouseEvent *pMouse = dynamic_cast<QMouseEvent *>(event);
+            if (pMouse)
+            {
+                mouseReleaseEvent(pMouse);
+            }
+        }
+    }
 }
 
 void FormLess::mousePressEvent(QMouseEvent *event)
@@ -252,8 +291,6 @@ void FormLess::checkBorderDragging(QMouseEvent *event)
             int neww = m_StartGeometry.width() + diff;
             if (newh > 0 && neww > 0) {
                 QRect newg = m_StartGeometry;
-//                newg.setX(m_StartGeometry.x());
-//                newg.setY(m_StartGeometry.y());
                 newg.setHeight(newh);
                 newg.setWidth(neww);
                 setGeometry(newg);

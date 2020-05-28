@@ -10,8 +10,10 @@ class TitleWidget : public QWidget
 public:
     TitleWidget(QWidget* parent = nullptr);
     ~TitleWidget();
+
 signals:
     void doubleClicked();
+    void parentEvent(QMouseEvent* event);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -20,7 +22,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 protected:
-    bool   mousePressed;
+    bool   m_mousePressed;
     QPoint mousePos;
     QPoint wndPos;
 };
