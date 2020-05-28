@@ -14,32 +14,43 @@ TitleWidget::~TitleWidget()
 
 void TitleWidget::mousePressEvent(QMouseEvent *event)
 {
-  mousePressed = true;
-  mousePos = event->globalPos();
+    mousePressed = true;
+    mousePos = event->globalPos();
 
-  QWidget *parent = parentWidget();
-  if (parent) parent = parent->parentWidget();
+    QWidget *parent = parentWidget();
+    if (parent)
+    {
+        parent = parent->parentWidget();
+    }
 
-  if (parent) wndPos = parent->pos();
+    if (parent)
+    {
+        wndPos = parent->pos();
+    }
 }
 
 void TitleWidget::mouseMoveEvent(QMouseEvent *event)
 {
-  QWidget *parent = parentWidget();
-  if (parent) parent = parent->parentWidget();
+    QWidget *parent = parentWidget();
+    if (parent)
+    {
+        parent = parent->parentWidget();
+    }
 
-  if (parent && mousePressed)
-    parent->move(wndPos + (event->globalPos() - mousePos));
+    if (parent && mousePressed)
+    {
+        parent->move(wndPos + (event->globalPos() - mousePos));
+    }
 }
 
 void TitleWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-  Q_UNUSED(event);
-  mousePressed = false;
+    Q_UNUSED(event);
+    mousePressed = false;
 }
 
 void TitleWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  Q_UNUSED(event);
-  emit doubleClicked();
+    Q_UNUSED(event);
+    emit doubleClicked();
 }

@@ -11,18 +11,18 @@ public:
     TitleWidget(QWidget* parent = nullptr);
     ~TitleWidget();
 signals:
- void doubleClicked();
+    void doubleClicked();
 
 protected:
- void mousePressEvent(QMouseEvent *event);
- void mouseMoveEvent(QMouseEvent *event);
- void mouseReleaseEvent(QMouseEvent *event);
- void mouseDoubleClickEvent(QMouseEvent *event);
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 protected:
- QPoint mousePos;
- QPoint wndPos;
- bool mousePressed;
+    bool   mousePressed;
+    QPoint mousePos;
+    QPoint wndPos;
 };
 
 #endif // TITLEWIDGET_H
