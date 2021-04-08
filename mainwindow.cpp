@@ -12,7 +12,7 @@
 
 #include "videodecoder.h"
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_jpegMgr(nullptr)
@@ -31,8 +31,8 @@ MainWindow::~MainWindow()
 
 void MainWindow::SetImage(const QString& imgPath)
 {
-    QImageReader imgReader( imgPath );
-    imgReader.setAutoTransform( true );
+    QImageReader imgReader(imgPath);
+    imgReader.setAutoTransform(true);
     QImage qimg = imgReader.read();
 
     ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
@@ -41,7 +41,7 @@ void MainWindow::SetImage(const QString& imgPath)
         m_jpegMgr = new JpegManager(imgPath);
         if (m_jpegMgr->HasMicrovideo())
         {
-            std::shared_ptr<VideoDecoder> vv (new VideoDecoder (m_jpegMgr->getVideoMemory()));
+            std::shared_ptr<VideoDecoder> vv(new VideoDecoder(m_jpegMgr->getVideoMemory()));
             if (vv->isVideoInited())
             {
                 ui->photoVidget->SetPlayButtonVisible(true);

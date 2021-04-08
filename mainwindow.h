@@ -13,13 +13,13 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
     void SetImage(const QString& imgPath);
 
 private:
-    Ui::MainWindow *ui;
+    Ui::MainWindow* ui;
     JpegManager* m_jpegMgr;
 };
 #endif // MAINWINDOW_H

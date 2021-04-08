@@ -5,7 +5,7 @@
 #include <memory>
 
 namespace Ui {
-class ImageRenderWidget;
+    class ImageRenderWidget;
 }
 
 class VideoDecoder;
@@ -21,7 +21,7 @@ class ImageRenderWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit ImageRenderWidget(QWidget *parent = nullptr);
+    explicit ImageRenderWidget(QWidget* parent = nullptr);
     ~ImageRenderWidget();
 
     void SetPixmap(const QPixmap& image);
@@ -35,7 +35,7 @@ private slots:
     void on_playButton_clicked();
 
 protected:
-    void paintEvent(QPaintEvent *event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 private:
     Ui::ImageRenderWidget*          m_ui;

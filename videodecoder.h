@@ -28,11 +28,11 @@ namespace std
 
 struct VideoMetaData
 {
-    float   frameDuration           = 0.0f;
-    int     rotation                = 0;
-    size_t  width                   = 0;
-    size_t  height                  = 0;
-    size_t  uncompressedBufferSize  = 0;
+    float   frameDuration = 0.0f;
+    int     rotation = 0;
+    size_t  width = 0;
+    size_t  height = 0;
+    size_t  uncompressedBufferSize = 0;
 };
 
 class VideoDecoder
@@ -62,8 +62,8 @@ private:
     int                                     m_videoStreamIndex;
     size_t                                  m_queuePrefferedSize;
     size_t                                  m_currentVideoBufferFrameIndex;
-    SwsContext*                             m_swsVideoContext;
-    SwsContext*                             m_swsAudioContext;
+    SwsContext* m_swsVideoContext;
+    SwsContext* m_swsAudioContext;
     std::shared_ptr<JpegUtils::InMemoryVid> m_memoryVideo;
     VideoMetaData                           m_videoMetaData;
     std::queue<std::shared_ptr<uint8_t>>    m_videoFramesQueue;
