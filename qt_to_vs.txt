@@ -1,0 +1,7 @@
+open VS command prompt
+C:\qt\5.15.2\msvc2019_64\bin\qmake -spec win32-msvc -tp vc
+Build
+Navigate to output folder and run
+C:\Qt\5.15.2\msvc2019_64\bin\windeployqt.exe PhotoviewerDraft.exe
+copy ffmpeg binaries if needed
+voilà U R fabulous!
