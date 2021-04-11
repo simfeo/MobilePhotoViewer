@@ -299,10 +299,12 @@ public:
 		bool hasSpeed() const;          // Return true if (speedX,speedY,speedZ) is available
 	} GeoLocation;
 
-
-	uint32_t MicroVideo;
-	uint32_t MicroVideoVersion;
-	uint32_t MicroVideoOffset;
+    struct MicroVideo_t                // Google camera video file in metadata
+	{
+		uint32_t HasMicroVideo;			// not zero if exists
+		uint32_t MicroVideoVersion;		// just regularinfo
+		uint32_t MicroVideoOffset;		// offset from end of file
+	} MicroVideo;
 };
 
 } // namespace TinyEXIF

@@ -35,6 +35,13 @@ struct VideoMetaData
     size_t  uncompressedBufferSize = 0;
 };
 
+struct PcmFrame
+{
+    std::vector<uint8_t>    buffer;
+    uint64_t                start_time;
+    uint32_t                duration;
+};
+
 class VideoDecoder
 {
 public:
@@ -47,14 +54,17 @@ public:
     // return pointer to buffer of ARGB32 image
     // buffer size stored in VideoMetaData.uncompressedBufferSize
     bool isVideoInited() const;
+    bool hasAudioSource() const;
     void startAudioAndVideoDecoding();
     std::shared_ptr<uint8_t> popVideoFrame();
+    std::vector<PcmFrame>& getPcmFrames();
 
 private:
     void initVideo();
     void initVideoMeta();
     void deInitVideo();
     void getFrame(size_t frameCount);
+    void initAudioBuffers();
 
 private:
     bool                                    m_failedToLoad;
@@ -62,8 +72,8 @@ private:
     int                                     m_videoStreamIndex;
     size_t                                  m_queuePrefferedSize;
     size_t                                  m_currentVideoBufferFrameIndex;
-    SwsContext* m_swsVideoContext;
-    SwsContext* m_swsAudioContext;
+    SwsContext*                             m_swsVideoContext;
+    SwsContext*                             m_swsAudioContext;
     std::shared_ptr<JpegUtils::InMemoryVid> m_memoryVideo;
     VideoMetaData                           m_videoMetaData;
     std::queue<std::shared_ptr<uint8_t>>    m_videoFramesQueue;
@@ -77,6 +87,7 @@ private:
     std::shared_ptr<AVFrame>                m_tempVideoFrame;
     std::shared_ptr<AVFrame>                m_tempAudioFrame;
     std::shared_ptr<std::thread>            m_videoThread;
+    std::vector<PcmFrame>                   m_pcmFrames;
 };
 
 #endif // VIDEODECODER_H

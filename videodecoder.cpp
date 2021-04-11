@@ -11,6 +11,12 @@
 #include <mutex>
 #include <QDebug>
 
+extern "C"
+{
+#include <libavutil/samplefmt.h>
+#include <libswresample/swresample.h>
+}
+
 namespace
 {
     const size_t MAX_VIDEOMEMORY_CACHE_SIZE = 100 * 1024 * 1024;
@@ -60,8 +66,18 @@ bool VideoDecoder::isVideoInited() const
     return !m_failedToLoad;
 }
 
+bool VideoDecoder::hasAudioSource() const
+{
+    return m_pcmFrames.size();
+}
+
 void VideoDecoder::startAudioAndVideoDecoding()
 {
+    if (m_pcmFrames.empty())
+    {
+        initAudioBuffers();
+    }
+
     int64_t start_time = m_formatContext->streams[m_videoStreamIndex]->start_time;
     int error = avformat_seek_file(m_formatContext.get(), m_videoStreamIndex, start_time, start_time, start_time, 0);
     //If seeking fails, try seeking JUST with AVSEEK_FLAG_ANY
@@ -124,13 +140,19 @@ std::shared_ptr<uint8_t> VideoDecoder::popVideoFrame()
     }
 }
 
+std::vector<PcmFrame>& VideoDecoder::getPcmFrames()
+{
+    return m_pcmFrames;
+}
+
 void VideoDecoder::initVideo()
 {
     m_failedToLoad = true;
 
     unsigned char* fileStreamBuffer = (unsigned char*)av_malloc(FILESTREAMBUFFERSZ);
-    if (fileStreamBuffer == nullptr) {
-        // out of memory
+    if (fileStreamBuffer == nullptr)
+    {
+        return;
     }
 
     // Get a AVContext stream
@@ -231,7 +253,7 @@ void VideoDecoder::initVideo()
     if (m_audioCodecContext.get())
     {
         m_audioCodec.reset(avcodec_find_decoder(m_audioCodecContext->codec_id), [](AVCodec* p) { p = nullptr; });
-        if (m_videoCodec == nullptr)
+        if (m_audioCodec == nullptr)
         {
             qDebug() << "audio codec not found";
             return;
@@ -256,6 +278,7 @@ void VideoDecoder::initVideo()
     initVideoMeta();
 
     int64_t start_time = m_formatContext->streams[m_videoStreamIndex]->start_time;
+
     //        qDebug() << "start_time " << start_time;
 
     int error = avformat_seek_file(m_formatContext.get(), m_videoStreamIndex, start_time, start_time, start_time, 0);
@@ -263,7 +286,10 @@ void VideoDecoder::initVideo()
     if (error < 0)
     {
         error = av_seek_frame(m_formatContext.get(), m_videoStreamIndex, start_time, AVSEEK_FLAG_ANY);
-        return;
+        if (error < 0)
+        {
+            return;
+        }
     }
     m_failedToLoad = false;
 }
@@ -304,8 +330,6 @@ void VideoDecoder::deInitVideo()
 void VideoDecoder::getFrame(size_t frameCount)
 {
     size_t frameIndex = 0;
-
-    int frameFinished = 0;
     AVPacket packet;
 
     std::shared_ptr<AVFrame> videoFrame(av_frame_alloc(), [](AVFrame* p) {
@@ -339,33 +363,27 @@ void VideoDecoder::getFrame(size_t frameCount)
                 continue;
             }
 
-            if (frameFinished != AVERROR_EOF)
-            {
-                if (!m_swsVideoContext)
-                {
-                    m_swsVideoContext = sws_getContext(m_videoCodecContext->width, m_videoCodecContext->height, m_videoCodecContext->pix_fmt,
-                        m_videoCodecContext->width, m_videoCodecContext->height, AV_PIX_FMT_RGBA,
-                        SWS_BILINEAR, nullptr, nullptr, nullptr);
-                }
-                // Convert the image to RGBA.
-                sws_scale(m_swsVideoContext, m_tempVideoFrame->data, m_tempVideoFrame->linesize, 0, m_videoCodecContext->height, videoFrame->data, videoFrame->linesize);
 
-                //Some formats will automatically parse the presentation time stamp from the packet into the frame
-                //Some don't, so we do it manually just in case
-                videoFrame->pts = packet.pts;
-                std::shared_ptr<uint8_t> buf(new uint8_t[m_videoCodecContext->width * m_videoCodecContext->height * 4], [](uint8_t* p) { delete[] p; });
-                memcpy(buf.get(), videoFrame->data[0], m_videoCodecContext->width * m_videoCodecContext->height * 4);
-                {
-                    std::lock_guard<std::mutex> lock(m);
-                    m_videoFramesQueue.push(buf);
-                }
-                av_frame_unref(m_tempVideoFrame.get());
+            if (!m_swsVideoContext)
+            {
+                m_swsVideoContext = sws_getContext(m_videoCodecContext->width, m_videoCodecContext->height, m_videoCodecContext->pix_fmt,
+                    m_videoCodecContext->width, m_videoCodecContext->height, AV_PIX_FMT_RGBA,
+                    SWS_BILINEAR, nullptr, nullptr, nullptr);
             }
-            else
+            // Convert the image to RGBA.
+            sws_scale(m_swsVideoContext, m_tempVideoFrame->data, m_tempVideoFrame->linesize, 0, m_videoCodecContext->height, videoFrame->data, videoFrame->linesize);
+
+            //Some formats will automatically parse the presentation time stamp from the packet into the frame
+            //Some don't, so we do it manually just in case
+            videoFrame->pts = packet.pts;
+            std::shared_ptr<uint8_t> buf(new uint8_t[m_videoCodecContext->width * m_videoCodecContext->height * 4], [](uint8_t* p) { delete[] p; });
+            memcpy(buf.get(), videoFrame->data[0], m_videoCodecContext->width * m_videoCodecContext->height * 4);
             {
                 std::lock_guard<std::mutex> lock(m);
-                m_videoFramesQueue.push(nullptr);
+                m_videoFramesQueue.push(buf);
             }
+            av_frame_unref(m_tempVideoFrame.get());
+
             av_packet_unref(&packet);
             if (frameIndex >= frameCount)
             {
@@ -382,6 +400,114 @@ void VideoDecoder::getFrame(size_t frameCount)
     {
         std::lock_guard<std::mutex> lock(m);
         m_videoFramesQueue.push(nullptr);
+    }
+}
+
+void VideoDecoder::initAudioBuffers()
+{
+    if (m_audioStreamIndex < 0 || !m_audioCodecContext || !m_audioCodec)
+    {
+        return;
+    }
+
+    int start_time = m_formatContext->streams[m_audioStreamIndex]->start_time;
+    size_t frame_count = m_formatContext->streams[m_audioStreamIndex]->nb_frames;
+
+    avcodec_flush_buffers(m_audioCodecContext.get());
+
+    int error = avformat_seek_file(m_formatContext.get(), m_audioStreamIndex, start_time, start_time, start_time, 0);
+    //If seeking fails, try seeking JUST with AVSEEK_FLAG_ANY
+    if (error < 0)
+    {
+        error = av_seek_frame(m_formatContext.get(), m_audioStreamIndex, start_time, AVSEEK_FLAG_ANY);
+        if (error < 0)
+        {
+            return;
+        }
+    }
+    size_t frameIndex = 0;
+    AVPacket packet;
+
+    m_tempAudioFrame.reset(av_frame_alloc(), [](AVFrame* p) {av_frame_free(&p); });
+
+    std::shared_ptr<AVFrame> audioFrame(av_frame_alloc(), [](AVFrame* p) {
+        if (p->data[0])
+        {
+            av_free(p->data[0]);
+        }
+        av_frame_free(&p);
+        });
+
+
+    std::shared_ptr<SwrContext> swr_ctx(nullptr);
+
+    int returnCode = 0;
+    //If av_read_frame returns anything less than 0 it could either be an error, or the video could have stopped
+    while ((returnCode = av_read_frame(m_formatContext.get(), &packet)) >= 0)
+    {
+        // Is this the video stream we found earlier?
+        if (packet.stream_index == m_audioStreamIndex)
+        {
+            int decodeError = avcodec_send_packet(m_audioCodecContext.get(), &packet);
+            if (decodeError != 0)
+            {
+                av_packet_unref(&packet);
+                continue;
+            }
+            decodeError = avcodec_receive_frame(m_audioCodecContext.get(), m_tempAudioFrame.get());
+            if (decodeError != 0)
+            {
+                av_packet_unref(&packet);
+                continue;
+            }
+
+            if (!swr_ctx)
+            {
+                swr_ctx.reset(swr_alloc(), [](SwrContext* p) {swr_free(&p); });
+                swr_alloc_set_opts(swr_ctx.get(), m_audioCodecContext->channel_layout,
+                    AV_SAMPLE_FMT_S16,
+                    48000,
+                    m_audioCodecContext->channels,
+                    m_audioCodecContext->sample_fmt,
+                    m_audioCodecContext->sample_rate,
+                    0, 0
+                );
+                swr_init(swr_ctx.get());
+            }
+
+            size_t outsize = av_samples_get_buffer_size(NULL, m_audioCodecContext->channels,
+                m_tempAudioFrame->nb_samples,
+                AV_SAMPLE_FMT_S16,
+                0);
+
+            PcmFrame pc;
+            pc.buffer.resize(outsize);
+            uint8_t* data[1];
+            data[0] = static_cast<uint8_t*>(&pc.buffer[0]);
+            pc.start_time = 1000 * m_tempAudioFrame->pts / m_audioCodecContext->sample_rate;
+            pc.duration = 1000 * m_tempAudioFrame->pkt_duration / m_audioCodecContext->sample_rate;
+            
+            int len = swr_convert(swr_ctx.get(), data, static_cast<int>(pc.buffer.size()),
+                (const uint8_t**)m_tempAudioFrame->data,
+                m_tempAudioFrame->nb_samples
+            );
+            if (len <= 0)
+            {
+                qDebug() << "no any audio sample converted converted";
+            }
+            m_pcmFrames.push_back(pc);
+
+            av_packet_unref(&packet);
+            ++frameIndex;
+            if (frameIndex >= frame_count)
+            {
+                break;
+            }
+        }
+        else
+        {
+            av_packet_unref(&packet);
+        }
     }
 }
 

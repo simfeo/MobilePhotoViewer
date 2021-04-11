@@ -3,6 +3,7 @@
 #include "videodecoder.h"
 
 #include <QPainter>
+#include <QAudioOutput>
 #include <QDebug>
 #include <thread>
 #include <mutex>
@@ -84,6 +85,54 @@ void ImageRenderWidget::on_playButton_clicked()
             m_videoDecoder->startAudioAndVideoDecoding();
             size_t frameShowed = 0;
             std::shared_ptr<uint8_t> imgBuf;
+            if (m_videoDecoder->hasAudioSource())
+            {
+                std::shared_ptr<std::thread> audioThread(new std::thread([this]()
+                    {
+                        QAudioFormat fmt;
+                        fmt.setSampleRate(48000);
+                        fmt.setSampleSize(16);
+                        fmt.setChannelCount(2);
+                        fmt.setCodec("audio/pcm");
+                        fmt.setByteOrder(QAudioFormat::LittleEndian);
+                        fmt.setSampleType(QAudioFormat::UnSignedInt);
+                        std::shared_ptr<QAudioOutput>output(new QAudioOutput(fmt));
+                        std::shared_ptr<QIODevice> audio_io (output->start());
+
+                        auto pcm_frames = m_videoDecoder->getPcmFrames();
+                        size_t index = 0;
+                        size_t max_size = pcm_frames.size();
+                        auto start = std::chrono::steady_clock::now();
+                        while (thread_alive)
+                        {
+                            audio_io->write(reinterpret_cast<char*>(&pcm_frames[index].buffer[0]), pcm_frames[index].buffer.size());
+                            ++index;
+                            if (index == max_size)
+                            {
+                                break;
+                            }
+                            while (thread_alive && output->bytesFree() < pcm_frames[index].buffer.size())
+                            {
+                                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                            }
+                        }
+                        if (thread_alive)
+                        {
+                            auto end = std::chrono::steady_clock::now();
+                            auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                            int should_wait = pcm_frames.back().duration + pcm_frames.back().start_time - t_delta.count();
+                            if (should_wait > 0)
+                            {
+                                std::this_thread::sleep_for(std::chrono::milliseconds(should_wait));
+                            }
+                        }
+                        audio_io.reset();
+                        output.reset();
+                    })
+                    , [](std::thread* p) { delete p; }
+                );
+                audioThread->detach();
+            }
             while (thread_alive)
             {
                 auto imgBufTmp = m_videoDecoder->popVideoFrame();

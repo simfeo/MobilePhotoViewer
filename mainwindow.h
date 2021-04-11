@@ -19,7 +19,7 @@ public:
     void SetImage(const QString& imgPath);
 
 private:
-    Ui::MainWindow* ui;
-    JpegManager* m_jpegMgr;
+    Ui::MainWindow*     ui;
+    JpegManager*        m_jpegMgr;
 };
 #endif // MAINWINDOW_H

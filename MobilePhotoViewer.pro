@@ -41,5 +41,5 @@ win32
 {
     DEFINES += _MSC_VER=1928
     INCLUDEPATH += $$PWD/../../ffmpeg_own/tmp/installed/include
-    LIBS += -L$$PWD/../../ffmpeg_own/tmp/installed/bin -lavcodec -lavformat -lavfilter -lavutil -lswscale
+    LIBS += -L$$PWD/../../ffmpeg_own/tmp/installed/bin -lavcodec -lavformat -lavfilter -lavutil -lswscale -lswresample
 }

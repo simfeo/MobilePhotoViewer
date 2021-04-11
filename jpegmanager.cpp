@@ -33,19 +33,19 @@ void JpegManager::manageJpeg()
             << "Image Resolution " << m_imageEXIF.ImageWidth << "x" << m_imageEXIF.ImageHeight << " pixels\n" \
             << "Camera Model " << m_imageEXIF.Make.c_str() << " - " << m_imageEXIF.Model.c_str() << "\n" \
             << "Focal Length " << m_imageEXIF.FocalLength << " mm";
-        m_imageEXIF.parseFromXMPSegment(data.data(), length);
-    }
-    if (m_imageEXIF.MicroVideo)
-    {
-        qDebug() << "microvideo offset " << m_imageEXIF.MicroVideoOffset;
-        size_t offset = data.size() - m_imageEXIF.MicroVideoOffset;
-        m_memoryVideo.reset(new JpegUtils::InMemoryVid(data.data() + offset, data.size() - offset));
+        int result = m_imageEXIF.parseFromXMPSegment(data.data(), length);
+        if (m_imageEXIF.MicroVideo.HasMicroVideo)
+        {
+            qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;
+            size_t offset = data.size() - m_imageEXIF.MicroVideo.MicroVideoOffset;
+            m_memoryVideo.reset(new JpegUtils::InMemoryVid(data.data() + offset, data.size() - offset));
+        }
     }
 }
 
 bool JpegManager::HasMicrovideo()
 {
-    return m_imageEXIF.MicroVideo;
+    return m_imageEXIF.MicroVideo.HasMicroVideo;
 }
 
 std::shared_ptr<JpegUtils::InMemoryVid> JpegManager::getVideoMemory()

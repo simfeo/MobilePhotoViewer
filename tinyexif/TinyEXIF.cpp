@@ -1113,9 +1113,9 @@ int EXIFInfo::parseFromXMPSegmentXML(const char* szXML, unsigned len) {
 	const char* attrMicro(document->Attribute("GCamera:MicroVideo"));
 	if (attrMicro)
 	{
-		ParseXMP::Value(document, "GCamera:MicroVideo", MicroVideo);
-		ParseXMP::Value(document, "GCamera:MicroVideoVersion", MicroVideoVersion);
-		ParseXMP::Value(document, "GCamera:MicroVideoOffset", MicroVideoOffset);
+		ParseXMP::Value(document, "GCamera:MicroVideo", MicroVideo.HasMicroVideo);
+		ParseXMP::Value(document, "GCamera:MicroVideoVersion", MicroVideo.MicroVideoVersion);
+		ParseXMP::Value(document, "GCamera:MicroVideoOffset", MicroVideo.MicroVideoOffset);
 	}
 
 	const char* szAbout(document->Attribute("rdf:about"));
@@ -1289,6 +1289,10 @@ void EXIFInfo::clear() {
 	GeoLocation.LonComponents.minutes   = 0;
 	GeoLocation.LonComponents.seconds   = 0;
 	GeoLocation.LonComponents.direction = 0;
+
+	MicroVideo.HasMicroVideo			= 0;
+	MicroVideo.MicroVideoVersion		= 0;
+	MicroVideo.MicroVideoOffset			= 0;
 }
 
 } // namespace TinyEXIF

@@ -22,8 +22,8 @@ public:
     std::shared_ptr<JpegUtils::InMemoryVid> getVideoMemory();
 
 private:
-    QString m_imagePath;
-    TinyEXIF::EXIFInfo m_imageEXIF;
+    QString                                 m_imagePath;
+    TinyEXIF::EXIFInfo                      m_imageEXIF;
     std::shared_ptr<JpegUtils::InMemoryVid> m_memoryVideo;
 };
 
