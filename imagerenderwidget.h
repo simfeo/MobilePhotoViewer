@@ -34,6 +34,10 @@ signals:
 private slots:
     void on_playButton_clicked();
 
+private:
+    void startVideoThread();
+    void startAudioThread();
+
 protected:
     void paintEvent(QPaintEvent* event) override;
 
@@ -43,6 +47,7 @@ private:
     std::shared_ptr<VideoDecoder>   m_videoDecoder;
     std::shared_ptr<QImage>         m_nextImage;
     std::shared_ptr<std::thread>    m_videoUpdater;
+    std::shared_ptr<std::thread>    m_audioUpdater;
 };
 
 #endif // IMAGERENDERWIDGET_H

@@ -29,10 +29,15 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
 ImageRenderWidget::~ImageRenderWidget()
 {
     delete m_ui;
+    thread_alive = false;
+
     if (m_videoUpdater)
     {
-        thread_alive = false;
         m_videoUpdater.reset();
+    }
+    if (m_audioUpdater)
+    {
+        m_audioUpdater.reset();
     }
 }
 
@@ -52,30 +57,8 @@ void ImageRenderWidget::SetVideoManager(std::shared_ptr<VideoDecoder> videoDecod
     m_videoDecoder = videoDecoder;
 }
 
-void ImageRenderWidget::paintEvent(QPaintEvent* event)
+void ImageRenderWidget::startVideoThread()
 {
-
-    std::lock_guard<std::mutex> lock(m);
-    (void)event;
-    if (m_stillImage && !m_nextImage)
-    {
-        QPainter painter(this);
-        painter.drawPixmap(0, 0, m_stillImage->scaled(width(), height(), Qt::KeepAspectRatio));
-        //        painter.setPen(Qt::blue);
-        //        painter.setFont(QFont("Arial", 30));
-        //        painter.drawText(rect(), Qt::AlignCenter, "Qt");
-    }
-    else if (m_nextImage)
-    {
-        QPainter painter(this);
-        QPixmap dstPix = QPixmap::fromImage(*m_nextImage.get());
-        painter.drawPixmap(0, 0, dstPix.scaled(width(), height(), Qt::KeepAspectRatio));
-    }
-}
-
-void ImageRenderWidget::on_playButton_clicked()
-{
-    m_ui->playButton->hide();
     m_videoUpdater.reset(new std::thread([this]()
         {
             size_t videoWidth = m_videoDecoder->getMetadataInfo().width;
@@ -87,51 +70,8 @@ void ImageRenderWidget::on_playButton_clicked()
             std::shared_ptr<uint8_t> imgBuf;
             if (m_videoDecoder->hasAudioSource())
             {
-                std::shared_ptr<std::thread> audioThread(new std::thread([this]()
-                    {
-                        QAudioFormat fmt;
-                        fmt.setSampleRate(48000);
-                        fmt.setSampleSize(16);
-                        fmt.setChannelCount(2);
-                        fmt.setCodec("audio/pcm");
-                        fmt.setByteOrder(QAudioFormat::LittleEndian);
-                        fmt.setSampleType(QAudioFormat::UnSignedInt);
-                        std::shared_ptr<QAudioOutput>output(new QAudioOutput(fmt));
-                        std::shared_ptr<QIODevice> audio_io (output->start());
-
-                        auto pcm_frames = m_videoDecoder->getPcmFrames();
-                        size_t index = 0;
-                        size_t max_size = pcm_frames.size();
-                        auto start = std::chrono::steady_clock::now();
-                        while (thread_alive)
-                        {
-                            audio_io->write(reinterpret_cast<char*>(&pcm_frames[index].buffer[0]), pcm_frames[index].buffer.size());
-                            ++index;
-                            if (index == max_size)
-                            {
-                                break;
-                            }
-                            while (thread_alive && output->bytesFree() < pcm_frames[index].buffer.size())
-                            {
-                                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                            }
-                        }
-                        if (thread_alive)
-                        {
-                            auto end = std::chrono::steady_clock::now();
-                            auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-                            int should_wait = pcm_frames.back().duration + pcm_frames.back().start_time - t_delta.count();
-                            if (should_wait > 0)
-                            {
-                                std::this_thread::sleep_for(std::chrono::milliseconds(should_wait));
-                            }
-                        }
-                        audio_io.reset();
-                        output.reset();
-                    })
-                    , [](std::thread* p) { delete p; }
-                );
-                audioThread->detach();
+                std::thread st_audio([this]() {startAudioThread(); });
+                st_audio.detach();
             }
             while (thread_alive)
             {
@@ -174,6 +114,83 @@ void ImageRenderWidget::on_playButton_clicked()
     )
         , [](std::thread* p) {p->join(); delete p; }
         );
+
+}
+
+void ImageRenderWidget::startAudioThread()
+{
+    std::shared_ptr<std::thread> m_audioUpdater(new std::thread([this]()
+        {
+            QAudioFormat fmt;
+            fmt.setSampleRate(48000);
+            fmt.setSampleSize(16);
+            fmt.setChannelCount(2);
+            fmt.setCodec("audio/pcm");
+            fmt.setByteOrder(QAudioFormat::LittleEndian);
+            fmt.setSampleType(QAudioFormat::UnSignedInt);
+            std::shared_ptr<QAudioOutput>output(new QAudioOutput(fmt));
+            std::shared_ptr<QIODevice> audio_io(output->start());
+
+            auto pcm_frames = m_videoDecoder->getPcmFrames();
+            size_t index = 0;
+            size_t max_size = pcm_frames.size();
+            auto start = std::chrono::steady_clock::now();
+            while (thread_alive)
+            {
+                audio_io->write(reinterpret_cast<char*>(&pcm_frames[index].buffer[0]), pcm_frames[index].buffer.size());
+                ++index;
+                if (index == max_size)
+                {
+                    break;
+                }
+                while (thread_alive && output->bytesFree() < pcm_frames[index].buffer.size())
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                }
+            }
+            if (thread_alive)
+            {
+                auto end = std::chrono::steady_clock::now();
+                auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                int should_wait = pcm_frames.back().duration + pcm_frames.back().start_time - t_delta.count();
+                if (should_wait > 0)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(should_wait));
+                }
+            }
+            audio_io.reset();
+            output.reset();
+        })
+        , [](std::thread* p) {p->join(); delete p; }
+        );
+}
+
+void ImageRenderWidget::paintEvent(QPaintEvent* event)
+{
+
+    std::lock_guard<std::mutex> lock(m);
+    (void)event;
+    if (m_stillImage && !m_nextImage)
+    {
+        QPainter painter(this);
+        painter.drawPixmap(0, 0, m_stillImage->scaled(width(), height(), Qt::KeepAspectRatio));
+        //        painter.setPen(Qt::blue);
+        //        painter.setFont(QFont("Arial", 30));
+        //        painter.drawText(rect(), Qt::AlignCenter, "Qt");
+    }
+    else if (m_nextImage)
+    {
+        QPainter painter(this);
+        QPixmap dstPix = QPixmap::fromImage(*m_nextImage.get());
+        painter.drawPixmap(0, 0, dstPix.scaled(width(), height(), Qt::KeepAspectRatio));
+    }
+}
+
+void ImageRenderWidget::on_playButton_clicked()
+{
+    m_ui->playButton->hide();
+    std::thread st_video([this]() {startVideoThread(); });
+    st_video.detach();
 
     //    emit playVideoButtonClickedSignal();
 }

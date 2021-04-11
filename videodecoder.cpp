@@ -486,7 +486,7 @@ void VideoDecoder::initAudioBuffers()
             data[0] = static_cast<uint8_t*>(&pc.buffer[0]);
             pc.start_time = 1000 * m_tempAudioFrame->pts / m_audioCodecContext->sample_rate;
             pc.duration = 1000 * m_tempAudioFrame->pkt_duration / m_audioCodecContext->sample_rate;
-            
+
             int len = swr_convert(swr_ctx.get(), data, static_cast<int>(pc.buffer.size()),
                 (const uint8_t**)m_tempAudioFrame->data,
                 m_tempAudioFrame->nb_samples
