@@ -111,9 +111,9 @@ void MainWindow::wheelEvent(QWheelEvent *event)
             return;
         }
         images.sort();
-        size_t in = images.indexOf(QFileInfo( m_currentPath ).fileName());
+        int in = images.indexOf(QFileInfo( m_currentPath ).fileName());
         int scrollPos = -1*numSteps.y();
-        if (scrollPos < 0 && static_cast<size_t>(abs(scrollPos)) > in)
+        if (scrollPos < 0 && scrollPos > in)
         {
             in = 0;
         }
@@ -121,6 +121,6 @@ void MainWindow::wheelEvent(QWheelEvent *event)
         {
             in = (in + scrollPos) >= images.size() ? images.size()-1 : in + scrollPos;
         }
-        SetImage(workingDir.absoluteFilePath(images[static_cast<size_t>(in)]));
+        SetImage(workingDir.absoluteFilePath(images[in]));
     }
 }
