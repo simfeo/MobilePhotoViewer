@@ -73,6 +73,7 @@ bool VideoDecoder::hasAudioSource() const
 
 void VideoDecoder::startAudioAndVideoDecoding()
 {
+    thread_alive = true;
     if (m_pcmFrames.empty())
     {
         initAudioBuffers();

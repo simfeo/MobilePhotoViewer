@@ -43,7 +43,10 @@ ImageRenderWidget::~ImageRenderWidget()
 
 void ImageRenderWidget::SetPixmap(const QPixmap& image)
 {
-
+    if (image.isNull())
+    {
+        qDebug() << "invalid image on input";
+    }
     m_stillImage.reset(new QPixmap(image));
 }
 
@@ -64,6 +67,7 @@ void ImageRenderWidget::startVideoThread()
             size_t videoWidth = m_videoDecoder->getMetadataInfo().width;
             size_t videoHeight = m_videoDecoder->getMetadataInfo().height;
             size_t threadSleepTime = m_videoDecoder->getMetadataInfo().frameDuration * 1000000;
+            auto chrono_sleep_time = std::chrono::microseconds(threadSleepTime);
 
             m_videoDecoder->startAudioAndVideoDecoding();
             size_t frameShowed = 0;
@@ -73,8 +77,14 @@ void ImageRenderWidget::startVideoThread()
                 std::thread st_audio([this]() {startAudioThread(); });
                 st_audio.detach();
             }
+            auto video_playback_start_time = std::chrono::steady_clock::now();
+            auto frame_decoding_start_time = std::chrono::steady_clock::now();
+            auto frame_decoding_end_time = std::chrono::steady_clock::now();
+            auto frame_decoding_duration = frame_decoding_start_time - frame_decoding_start_time;
+
             while (thread_alive)
             {
+                frame_decoding_start_time = std::chrono::steady_clock::now();
                 auto imgBufTmp = m_videoDecoder->popVideoFrame();
                 if (imgBufTmp)
                 {
@@ -84,11 +94,14 @@ void ImageRenderWidget::startVideoThread()
                         imgBuf = imgBufTmp;
                         m_nextImage.reset(new QImage(imgBuf.get(), static_cast<int>(videoWidth), static_cast<int>(videoHeight), QImage::Format_RGBA8888));
 
-                        QPoint center = m_nextImage->rect().center();
-                        QTransform matrix;
-                        matrix.translate(center.x(), center.y());
-                        matrix.rotate(90);
-                        m_nextImage.reset(new QImage(m_nextImage->transformed(matrix)));
+                        if (m_videoDecoder->getMetadataInfo().rotation)
+                        {
+                            QPoint center = m_nextImage->rect().center();
+                            QTransform matrix;
+                            matrix.translate(center.x(), center.y());
+                            matrix.rotate(m_videoDecoder->getMetadataInfo().rotation);
+                            m_nextImage.reset(new QImage(m_nextImage->transformed(matrix)));
+                        }
                     }
 
                     QMetaObject::invokeMethod(this, "repaint", Qt::QueuedConnection);
@@ -97,13 +110,22 @@ void ImageRenderWidget::startVideoThread()
                 {
                     break;
                 }
-                std::this_thread::sleep_for(std::chrono::microseconds(threadSleepTime));
+                frame_decoding_end_time = std::chrono::steady_clock::now();
+                frame_decoding_duration = frame_decoding_duration + std::chrono::duration_cast<std::chrono::milliseconds>(frame_decoding_end_time - frame_decoding_start_time);
+                qDebug()<<"rescaling time " << frame_decoding_duration.count()<< (chrono_sleep_time - frame_decoding_duration).count();
+
+                std::this_thread::sleep_for( frame_decoding_duration > chrono_sleep_time ? std::chrono::milliseconds(1) : chrono_sleep_time - frame_decoding_duration);
+
+                frame_decoding_duration = std::chrono::steady_clock::now() - frame_decoding_end_time - chrono_sleep_time + frame_decoding_duration;
             }
             if (thread_alive)
             {
                 std::lock_guard<std::mutex> lock(m);
                 m_nextImage.reset();
             }
+            auto video_playback_end_time = std::chrono::steady_clock::now();
+            auto total_video_playback_time = std::chrono::duration_cast<std::chrono::milliseconds>(video_playback_end_time - video_playback_start_time);
+            qDebug()<<"video playback time " << total_video_playback_time.count();
             if (thread_alive)
             {
                 //            m_ui->playButton->show();

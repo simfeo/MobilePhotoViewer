@@ -45,6 +45,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::SetImage(const QString& imgPath)
 {
+    ui->photoVidget->SetPlayButtonVisible(false);
     QImageReader imgReader(imgPath);
     imgReader.setAutoTransform(true);
     QImage qimg = imgReader.read();
@@ -111,13 +112,14 @@ void MainWindow::wheelEvent(QWheelEvent *event)
         }
         images.sort();
         size_t in = images.indexOf(QFileInfo( m_currentPath ).fileName());
-        if (numSteps.y() < 0 && static_cast<size_t>(abs(numSteps.y())) > in)
+        int scrollPos = -1*numSteps.y();
+        if (scrollPos < 0 && static_cast<size_t>(abs(scrollPos)) > in)
         {
             in = 0;
         }
         else
         {
-            in = (in + numSteps.y()) >= images.size() ? images.size()-1 : in + numSteps.y();
+            in = (in + scrollPos) >= images.size() ? images.size()-1 : in + scrollPos;
         }
         SetImage(workingDir.absoluteFilePath(images[in]));
     }
