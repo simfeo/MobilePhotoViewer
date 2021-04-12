@@ -77,7 +77,7 @@ void ImageRenderWidget::startVideoThread()
                 std::thread st_audio([this]() {startAudioThread(); });
                 st_audio.detach();
             }
-            auto video_playback_start_time = std::chrono::steady_clock::now();
+            //            auto video_playback_start_time = std::chrono::steady_clock::now();
             auto frame_decoding_start_time = std::chrono::steady_clock::now();
             auto frame_decoding_end_time = std::chrono::steady_clock::now();
             auto frame_decoding_duration = frame_decoding_start_time - frame_decoding_start_time;
@@ -112,9 +112,9 @@ void ImageRenderWidget::startVideoThread()
                 }
                 frame_decoding_end_time = std::chrono::steady_clock::now();
                 frame_decoding_duration = frame_decoding_duration + std::chrono::duration_cast<std::chrono::milliseconds>(frame_decoding_end_time - frame_decoding_start_time);
-                qDebug()<<"rescaling time " << frame_decoding_duration.count()<< (chrono_sleep_time - frame_decoding_duration).count();
+                //                qDebug()<<"rescaling time " << frame_decoding_duration.count()<< (chrono_sleep_time - frame_decoding_duration).count();
 
-                std::this_thread::sleep_for( frame_decoding_duration > chrono_sleep_time ? std::chrono::milliseconds(1) : chrono_sleep_time - frame_decoding_duration);
+                std::this_thread::sleep_for(frame_decoding_duration > chrono_sleep_time ? std::chrono::milliseconds(1) : chrono_sleep_time - frame_decoding_duration);
 
                 frame_decoding_duration = std::chrono::steady_clock::now() - frame_decoding_end_time - chrono_sleep_time + frame_decoding_duration;
             }
@@ -123,9 +123,9 @@ void ImageRenderWidget::startVideoThread()
                 std::lock_guard<std::mutex> lock(m);
                 m_nextImage.reset();
             }
-            auto video_playback_end_time = std::chrono::steady_clock::now();
-            auto total_video_playback_time = std::chrono::duration_cast<std::chrono::milliseconds>(video_playback_end_time - video_playback_start_time);
-            qDebug()<<"video playback time " << total_video_playback_time.count();
+            //            auto video_playback_end_time = std::chrono::steady_clock::now();
+            //            auto total_video_playback_time = std::chrono::duration_cast<std::chrono::milliseconds>(video_playback_end_time - video_playback_start_time);
+            //            qDebug()<<"video playback time " << total_video_playback_time.count();
             if (thread_alive)
             {
                 //            m_ui->playButton->show();
@@ -165,7 +165,7 @@ void ImageRenderWidget::startAudioThread()
                 {
                     break;
                 }
-                while (thread_alive && output->bytesFree() < pcm_frames[index].buffer.size())
+                while (thread_alive && static_cast<size_t>(output->bytesFree()) < pcm_frames[index].buffer.size())
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
