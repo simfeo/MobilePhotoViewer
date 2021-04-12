@@ -44,8 +44,10 @@ public:
         sizePolicy.setVerticalStretch(0);
         sizePolicy.setHeightForWidth(MainWindow->sizePolicy().hasHeightForWidth());
         MainWindow->setSizePolicy(sizePolicy);
+        MainWindow->setAcceptDrops(true);
         centralwidget = new QWidget(MainWindow);
         centralwidget->setObjectName(QString::fromUtf8("centralwidget"));
+        centralwidget->setAcceptDrops(true);
         horizontalLayout_2 = new QHBoxLayout(centralwidget);
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
         horizontalLayout = new QHBoxLayout();
@@ -61,6 +63,7 @@ public:
         centerBar->setSizeConstraint(QLayout::SetDefaultConstraint);
         photoVidget = new ImageRenderWidget(centralwidget);
         photoVidget->setObjectName(QString::fromUtf8("photoVidget"));
+        photoVidget->setAcceptDrops(true);
 
         centerBar->addWidget(photoVidget);
 

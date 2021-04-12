@@ -121,6 +121,6 @@ void MainWindow::wheelEvent(QWheelEvent *event)
         {
             in = (in + scrollPos) >= images.size() ? images.size()-1 : in + scrollPos;
         }
-        SetImage(workingDir.absoluteFilePath(images[in]));
+        SetImage(workingDir.absoluteFilePath(images[static_cast<size_t>(in)]));
     }
 }

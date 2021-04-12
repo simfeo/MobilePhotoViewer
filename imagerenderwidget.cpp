@@ -195,7 +195,10 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
     if (m_stillImage && !m_nextImage)
     {
         QPainter painter(this);
-        painter.drawPixmap(0, 0, m_stillImage->scaled(width(), height(), Qt::KeepAspectRatio));
+        auto m = m_stillImage->scaled(width(), height(), Qt::KeepAspectRatio);
+        int x_offset = (width() - m.width()) / 2;
+        int y_offset = (height() - m.height()) / 2;
+        painter.drawPixmap(x_offset, y_offset, m);
         //        painter.setPen(Qt::blue);
         //        painter.setFont(QFont("Arial", 30));
         //        painter.drawText(rect(), Qt::AlignCenter, "Qt");
@@ -204,7 +207,10 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
     {
         QPainter painter(this);
         QPixmap dstPix = QPixmap::fromImage(*m_nextImage.get());
-        painter.drawPixmap(0, 0, dstPix.scaled(width(), height(), Qt::KeepAspectRatio));
+        auto m = dstPix.scaled(width(), height(), Qt::KeepAspectRatio);
+        int x_offset = (width() - m.width()) / 2;
+        int y_offset = (height() - m.height()) / 2;
+        painter.drawPixmap(x_offset, y_offset, m);
     }
 }
 
