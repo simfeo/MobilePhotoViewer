@@ -56,14 +56,14 @@ public:
     bool isVideoInited() const;
     bool hasAudioSource() const;
     void startAudioAndVideoDecoding();
-    std::shared_ptr<uint8_t> popVideoFrame();
+    std::shared_ptr<uint8_t> popVideoFrame(bool& isThreadAlive);
     std::vector<PcmFrame>& getPcmFrames();
 
 private:
     void initVideo();
     void initVideoMeta();
     void deInitVideo();
-    void getFrame(size_t frameCount);
+    bool getFrame(size_t frameCount);
     void initAudioBuffers();
 
 private:

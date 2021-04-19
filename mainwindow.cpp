@@ -112,15 +112,20 @@ void MainWindow::wheelEvent(QWheelEvent *event)
         }
         images.sort();
         int in = images.indexOf(QFileInfo( m_currentPath ).fileName());
-        int scrollPos = -1*numSteps.y();
-        if (scrollPos < 0 && scrollPos > in)
+        const int current_in = in;
+        in = in - numSteps.y();
+        if (in < 0)
         {
             in = 0;
         }
-        else
+        else if (in >= images.size())
         {
-            in = (in + scrollPos) >= images.size() ? images.size()-1 : in + scrollPos;
+            in = images.size()-1;
         }
-        SetImage(workingDir.absoluteFilePath(images[in]));
+
+        if (current_in != in)
+        {
+            SetImage(workingDir.absoluteFilePath(images[in]));
+        }
     }
 }

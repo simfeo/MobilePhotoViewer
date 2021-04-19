@@ -73,6 +73,8 @@ bool VideoDecoder::hasAudioSource() const
 
 void VideoDecoder::startAudioAndVideoDecoding()
 {
+    thread_alive = false;
+    m_videoThread.reset();
     thread_alive = true;
     if (m_pcmFrames.empty())
     {
@@ -100,7 +102,7 @@ void VideoDecoder::startAudioAndVideoDecoding()
 
     m_videoThread.reset(new std::thread([this]()
         {
-            size_t sleepMs = m_videoMetaData.frameDuration * 1000 / 2;
+            size_t sleepMs = m_videoMetaData.frameDuration * 100;
             getFrame(m_queuePrefferedSize);
             while (thread_alive)
             {
@@ -110,13 +112,18 @@ void VideoDecoder::startAudioAndVideoDecoding()
                     queSize = m_videoFramesQueue.size();
                     if (queSize && m_videoFramesQueue.back() == nullptr)
                     {
+                        thread_alive = false;
                         break;
                     }
                 }
                 //            qDebug()<<"queue size "<< queSize;
                 if (queSize < m_queuePrefferedSize)
                 {
-                    getFrame(1);
+                    if (!getFrame(1))
+                    {
+                        thread_alive = false;
+                        break;
+                    }
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
             }
@@ -126,17 +133,19 @@ void VideoDecoder::startAudioAndVideoDecoding()
         );
 }
 
-std::shared_ptr<uint8_t> VideoDecoder::popVideoFrame()
+std::shared_ptr<uint8_t> VideoDecoder::popVideoFrame(bool& isThreadAlive)
 {
     if (m_videoFramesQueue.size())
     {
         std::lock_guard<std::mutex> lock(m);
         auto el = m_videoFramesQueue.front();
         m_videoFramesQueue.pop();
+        isThreadAlive = thread_alive;
         return el;
     }
     else
     {
+        isThreadAlive = thread_alive;
         return nullptr;
     }
 }
@@ -328,8 +337,9 @@ void VideoDecoder::deInitVideo()
     m_ioContext.reset();
 }
 
-void VideoDecoder::getFrame(size_t frameCount)
+bool VideoDecoder::getFrame(size_t frameCount)
 {
+    //std::this_thread::sleep_for(std::chrono::milliseconds(50));
     size_t frameIndex = 0;
     AVPacket packet;
 
@@ -388,7 +398,7 @@ void VideoDecoder::getFrame(size_t frameCount)
             av_packet_unref(&packet);
             if (frameIndex >= frameCount)
             {
-                break;
+                return true;
             }
             ++frameIndex;
         }
@@ -401,7 +411,9 @@ void VideoDecoder::getFrame(size_t frameCount)
     {
         std::lock_guard<std::mutex> lock(m);
         m_videoFramesQueue.push(nullptr);
+        return false;
     }
+    return false;
 }
 
 void VideoDecoder::initAudioBuffers()

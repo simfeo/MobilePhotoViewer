@@ -85,7 +85,8 @@ void ImageRenderWidget::startVideoThread()
             while (thread_alive)
             {
                 frame_decoding_start_time = std::chrono::steady_clock::now();
-                auto imgBufTmp = m_videoDecoder->popVideoFrame();
+                bool is_thread_alive = true;
+                auto imgBufTmp = m_videoDecoder->popVideoFrame(is_thread_alive);
                 if (imgBufTmp)
                 {
                     ++frameShowed;
@@ -105,6 +106,11 @@ void ImageRenderWidget::startVideoThread()
                     }
 
                     QMetaObject::invokeMethod(this, "repaint", Qt::QueuedConnection);
+                }
+                else if (is_thread_alive)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
                 }
                 else if (frameShowed)
                 {
