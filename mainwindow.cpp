@@ -28,6 +28,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_jpegMgr(nullptr)
+    , m_heifMgr(nullptr)
     , m_currentPath()
 {
     ui->setupUi(this);
@@ -40,6 +41,11 @@ MainWindow::~MainWindow()
     if (m_jpegMgr)
     {
         delete m_jpegMgr;
+    }
+
+    if (m_heifMgr)
+    {
+        delete m_heifMgr;
     }
 }
 
@@ -58,6 +64,25 @@ void MainWindow::SetImage(const QString& imgPath)
         if (m_jpegMgr->HasMicrovideo())
         {
             std::shared_ptr<VideoDecoder> vv(new VideoDecoder(m_jpegMgr->getVideoMemory()));
+            if (vv->isVideoInited())
+            {
+                ui->photoVidget->SetPlayButtonVisible(true);
+                ui->photoVidget->SetVideoManager(vv);
+            }
+        }
+    }
+    else if (imgPath.endsWith("heic") || imgPath.endsWith("heif"))
+    {
+        m_heifMgr = new HeifManager(imgPath);
+
+        if (m_heifMgr->getWidth()  && m_heifMgr->getHeight())
+        {
+            QImage qimg = QImage(m_heifMgr->getDecodedImage().get(), static_cast<int>(m_heifMgr->getWidth()), static_cast<int>(m_heifMgr->getHeight()), QImage::Format_RGBA8888);
+            ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
+        }
+        if (m_heifMgr->HasMicrovideo())
+        {
+            std::shared_ptr<VideoDecoder> vv(new VideoDecoder(m_heifMgr->getVideoMemory()));
             if (vv->isVideoInited())
             {
                 ui->photoVidget->SetPlayButtonVisible(true);

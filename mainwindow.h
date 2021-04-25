@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QString>
 #include <jpegmanager.h>
+#include <heifmanager.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -36,6 +37,7 @@ protected:
 private:
     Ui::MainWindow*     ui;
     JpegManager*        m_jpegMgr;
+    HeifManager*        m_heifMgr;
     QString             m_currentPath;
 };
 #endif // MAINWINDOW_H
