@@ -4,7 +4,7 @@
 
 
 #include "videodecoder.h"
-#include "jpeginmemoryvideo.h"
+#include <Tools/jpeginmemoryvideo.h>
 
 #include <thread>
 #include <chrono>

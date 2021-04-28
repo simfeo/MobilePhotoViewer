@@ -6,8 +6,15 @@ extern "C"
 #include <libavutil/dict.h>
 }
 
-
-namespace JpegUtils {
+namespace JpegUtils
+{
+    InMemoryVid::InMemoryVid(std::vector<uint8_t>& invec)
+        :m_currentPos(0)
+    {
+        m_bufferVec = std::move(invec);
+        m_length = m_bufferVec.size();
+        m_buffer = &m_bufferVec[0];
+    }
 
     InMemoryVid::InMemoryVid(uint8_t* buf, size_t len)
         : m_length(len)
@@ -53,7 +60,6 @@ namespace JpegUtils {
     {
         return m_length;
     }
-
 
     int FileStreamRead(void* ptr, uint8_t* buf, int buf_size)
     {

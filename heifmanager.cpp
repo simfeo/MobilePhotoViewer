@@ -1,5 +1,5 @@
 #include "heifmanager.h"
-#include <jpeginmemoryvideo.h>
+#include <Tools/jpeginmemoryvideo.h>
 
 #include <QDebug>
 #include <QImage>
@@ -12,7 +12,10 @@
 //#include <Heif.h>
 
 #include <heif.h>
+#include <heif_context.h>
 #include <heif_api_structs.h>
+
+#include <Tools/heifreader.h>
 
 HeifManager::HeifManager(const QString& imgPath)
     : m_width(0)
@@ -26,10 +29,10 @@ HeifManager::HeifManager(const QString& imgPath)
 
 void HeifManager::manageHeif()
 {
-    std::ifstream istr(m_imagePath.toStdString().c_str(), std::ios_base::binary);
+    std::shared_ptr<std::ifstream> istr(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
     uint8_t magic[12];
-    istr.read((char*)magic, 12);
-    enum heif_filetype_result filetype_check = heif_check_filetype(magic, 12);
+    istr->read((char*)magic, 12);
+    heif_filetype_result filetype_check = heif_check_filetype(magic, 12);
     if (filetype_check == heif_filetype_no)
     {
         qDebug() << "Input file is not an HEIF/AVIF file\n";
@@ -69,26 +72,8 @@ void HeifManager::manageHeif()
     std::vector<heif_item_id> image_IDs(num_images);
     num_images = heif_context_get_list_of_top_level_image_IDs(ctx.get(), image_IDs.data(), num_images);
 
-
-    std::string filename;
-    size_t image_index = 1;  // Image filenames are "1" based.
-
     for (int idx = 0; idx < num_images; ++idx)
     {
-
-        if (num_images > 1)
-        {
-            std::ostringstream s;
-            s << m_imagePath.toStdString().substr(0, m_imagePath.toStdString().find_last_of('.'));
-            s << "-" << image_index;
-            s << m_imagePath.toStdString().substr(m_imagePath.toStdString().find_last_of('.'));
-            filename.assign(s.str());
-        }
-        else
-        {
-            filename.assign(m_imagePath.toStdString());
-        }
-
         struct heif_image_handle* handle;
         err = heif_context_get_image_handle(ctx.get(), image_IDs[idx], &handle);
         if (err.code)
@@ -97,7 +82,7 @@ void HeifManager::manageHeif()
             return;
         }
 
-        int has_alpha = heif_image_handle_has_alpha_channel(handle);
+//        int has_alpha = heif_image_handle_has_alpha_channel(handle);
         std::shared_ptr<heif_decoding_options> decode_options(heif_decoding_options_alloc(), [](heif_decoding_options* p) {heif_decoding_options_free(p); });
         //      encoder->UpdateDecodingOptions(handle, decode_options);
 
@@ -149,24 +134,61 @@ void HeifManager::manageHeif()
             m_decodedImage.reset(new uint8_t[m_height * r_stride], [](uint8_t* p) { delete[] p; });
             memcpy(m_decodedImage.get(), img_plane, m_height * r_stride);
         }
+
+        for (const auto& metadata : handle->image->get_metadata())
+        {
+            if (metadata->item_type == "exif"
+                || metadata->item_type == "Exif")
+            {
+                m_imageEXIF = TinyEXIF::EXIFInfo();
+                m_imageEXIF.clear();
+                m_imageEXIF.parseFromEXIFSegment(&metadata->m_data[4], metadata->m_data.size() - 4);
+            }
+        }
     }
 
 
+    
+    HeifReader heif;
+    heif.load(*istr.get());
+    SefdBox sf = heif.getSefdBox();
+    if (sf.getSize() != 0
+        && sf.getFtyp().getSize() != 0
+        && sf.getFtyp().GetMajorBand() == "mp42"
+        && sf.getMdat().getSize() != 0
+        && sf.getMdat().startPosition() != 0
+        && sf.getMdat().endPosition() != 0)
+    {
+        m_imageEXIF.MicroVideo.HasMicroVideo = 1;
+        std::vector<uint8_t> videoData;
+        videoData.resize(sf.getSize() - sf.getFtypStartPos());
+        if (istr->good())
+        {
+            istr->seekg(heif.getSefdOffset() + sf.getMdat().startPosition());
+            istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
+            m_memoryVideo.reset(new JpegUtils::InMemoryVid(videoData));
+        }
+        else
+        {
+            istr.reset(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
 
+            istr->seekg(heif.getSefdOffset() + sf.getFtypStartPos());
+            istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
+            m_memoryVideo.reset(new JpegUtils::InMemoryVid(videoData));
+        }
+    }
     /*
-    HEIFPP::Heif heif;
-    heif.load(m_imagePath.toStdString().c_str());
     if (heif.hasSingleImage())
     {
         qDebug() << "has single image";
     }
-
+    
     if (heif.hasImageCollection())
     {
         qDebug() << "image collection";
     }
-    */
-    /*
+    
+    
     std::shared_ptr<HEIF::Reader> reader(HEIF::Reader::Create(), [](HEIF::Reader* p) {HEIF::Reader::Destroy(p); });
 
     if (reader->initialize(m_imagePath.toStdString().c_str()) != HEIF::ErrorCode::OK)
@@ -185,12 +207,16 @@ void HeifManager::manageHeif()
     }
 
     // Find the primary item ID.
-    HEIF::ImageId primaryItemId;
-    reader->getPrimaryItem(primaryItemId);
+    */
+    //int primaryItemId = -1;
+    //heif.getPrimaryItem(primaryItemId);
+
+    /*
     const HEIF::FourCC grid("grid");
     HEIF::FourCC primaryType;
     reader->getItemType(primaryItemId, primaryType);
-
+    */
+   /*
     reader->getWidth(primaryItemId, m_width);
     reader->getHeight(primaryItemId, m_height);
 
@@ -212,8 +238,10 @@ void HeifManager::manageHeif()
 
         image_decoded = reader->getItemDataWithDecoderParameters(primaryItemId, m_decodedImage.get(), imgBufSize);
     }
-
+    */
     // Find item(s) referencing to the primary item with "cdsc" (content describes) item reference.
+   
+    /*
     HEIF::Array<HEIF::ImageId> metadataIds;
     reader->getReferencedToItemListByType(primaryItemId, "cdsc", metadataIds);
     HEIF::ImageId exifItemId = metadataIds[0];
@@ -245,6 +273,7 @@ void HeifManager::manageHeif()
     m_imageEXIF.clear();
     m_imageEXIF.parseFromEXIFSegment(memoryBuffer.get()+4, itemSize-4);
     */
+    
     /*
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Find the item ID of the first master image
@@ -288,7 +317,7 @@ void HeifManager::manageHeif()
 
 bool HeifManager::HasMicrovideo()
 {
-    return false;
+    return m_imageEXIF.MicroVideo.HasMicroVideo;
 }
 
 std::shared_ptr<JpegUtils::InMemoryVid> HeifManager::getVideoMemory()

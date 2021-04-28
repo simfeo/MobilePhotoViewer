@@ -1,12 +1,12 @@
 #include "jpegmanager.h"
 
-#include "jpeginmemoryvideo.h"
+#include <Tools/jpeginmemoryvideo.h>
 
 #include <QDebug>
 #include <QImage>
 
 #include <iostream>
-#include <fstream>  // std::ifstream
+#include <fstream>
 
 
 JpegManager::JpegManager(const QString& imgPath)
@@ -18,13 +18,12 @@ JpegManager::JpegManager(const QString& imgPath)
 
 void JpegManager::manageJpeg()
 {
-    std::ifstream imgFile(m_imagePath.toStdString().c_str(), std::ifstream::in | std::ifstream::binary);
-    imgFile.seekg(0, std::ios::end);
-    std::streampos length = imgFile.tellg();
-    imgFile.seekg(0, std::ios::beg);
+    std::shared_ptr<std::ifstream> imgFile(new std::ifstream(m_imagePath.toStdString().c_str(), std::ifstream::in | std::ifstream::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
+    imgFile->seekg(0, std::ios::end);
+    std::streampos length = imgFile->tellg();
+    imgFile->seekg(0, std::ios::beg);
     std::vector<uint8_t> data(length);
-    imgFile.read((char*)data.data(), length);
-
+    imgFile->read((char*)data.data(), length);
 
     m_imageEXIF = TinyEXIF::EXIFInfo(data.data(), length);
     if (m_imageEXIF.Fields)

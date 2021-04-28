@@ -10,9 +10,11 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    Tools/heifboxes.cpp \
+    Tools/heifreader.cpp \
+    Tools/jpeginmemoryvideo.cpp \
     heifmanager.cpp \
     imagerenderwidget.cpp \
-    jpeginmemoryvideo.cpp \
     jpegmanager.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -21,9 +23,11 @@ SOURCES += \
     videodecoder.cpp
 
 HEADERS += \
+    Tools/heifboxes.h \
+    Tools/heifreader.h \
+    Tools/jpeginmemoryvideo.h \
     heifmanager.h \
     imagerenderwidget.h \
-    jpeginmemoryvideo.h \
     jpegmanager.h \
     mainwindow.h \
     tinyexif/TinyEXIF.h \

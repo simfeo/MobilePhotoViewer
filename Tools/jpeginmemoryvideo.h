@@ -9,6 +9,7 @@ namespace JpegUtils
     class InMemoryVid
     {
     public:
+        InMemoryVid(std::vector<uint8_t>& invec);
         InMemoryVid(uint8_t* buf, size_t len);
 
         int FileStreamRead(uint8_t* buf, int buf_size);
