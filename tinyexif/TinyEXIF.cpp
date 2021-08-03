@@ -1118,6 +1118,37 @@ int EXIFInfo::parseFromXMPSegmentXML(const char* szXML, unsigned len) {
 		ParseXMP::Value(document, "GCamera:MicroVideoOffset", MicroVideo.MicroVideoOffset);
 	}
 
+    const char* attrMicro1(document->Attribute("GCamera:MotionPhoto"));
+    if (attrMicro1)
+    {
+        ParseXMP::Value(document, "GCamera:MotionPhoto", MicroVideo.HasMicroVideo);
+        ParseXMP::Value(document, "GCamera:MotionPhotoVersion", MicroVideo.MicroVideoVersion);
+
+        const tinyxml2::XMLElement* document1 = document->FirstChildElement("Container:Directory")->FirstChildElement("rdf:Seq")->FirstChildElement("rdf:li");
+        while(document1)
+        {
+            const tinyxml2::XMLElement* chld = document1->FirstChildElement("Container:Item");
+            if (chld)
+            {
+                const char* mime = chld->Attribute("Item:Mime");
+                const char* res = strstr(mime, "video");
+                if (res)
+                {
+                    ParseXMP::Value(chld, "Item:Length", MicroVideo.MicroVideoOffset);
+                    break;
+                }
+            }
+            if (document1->NextSibling())
+            {
+                document1 = document1->NextSibling()->ToElement();
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
 	const char* szAbout(document->Attribute("rdf:about"));
     if (0 == strcmpi(Make.c_str(), "DJI") || (szAbout != NULL && 0 == strcmpi(szAbout, "DJI Meta Data"))) {
 		ParseXMP::Value(document, "drone-dji:AbsoluteAltitude", GeoLocation.Altitude);

@@ -32,7 +32,6 @@ void JpegManager::manageJpeg()
             << "Image Resolution " << m_imageEXIF.ImageWidth << "x" << m_imageEXIF.ImageHeight << " pixels\n" \
             << "Camera Model " << m_imageEXIF.Make.c_str() << " - " << m_imageEXIF.Model.c_str() << "\n" \
             << "Focal Length " << m_imageEXIF.FocalLength << " mm";
-        m_imageEXIF.parseFromXMPSegment(data.data(), length);
         if (m_imageEXIF.MicroVideo.HasMicroVideo)
         {
             qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;

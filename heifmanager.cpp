@@ -164,7 +164,7 @@ void HeifManager::manageHeif()
         videoData.resize(sf.getSize() - sf.getFtypStartPos());
         if (istr->good())
         {
-            istr->seekg(heif.getSefdOffset() + sf.getMdat().startPosition());
+            istr->seekg(heif.getSefdOffset() + sf.getFtypStartPos());
             istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
             m_memoryVideo.reset(new JpegUtils::InMemoryVid(videoData));
         }
