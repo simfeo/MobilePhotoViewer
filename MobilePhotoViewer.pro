@@ -45,7 +45,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 win32
 {
-    DEFINES += _MSC_VER=1929
     INCLUDEPATH += $$PWD/../../ffmpeg_own/installed/include
     LIBS += -L$$PWD/../../ffmpeg_own/installed/bin -lavcodec -lavformat -lavfilter -lavutil -lswscale -lswresample
 

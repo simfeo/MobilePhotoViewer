@@ -3,7 +3,13 @@
 #include "videodecoder.h"
 
 #include <QPainter>
+
+#include <QAudioFormat>
+#include <QAudioDevice>
 #include <QAudioOutput>
+#include <QAudioSink>
+#include <QMediaDevices>
+
 #include <QDebug>
 #include <thread>
 #include <mutex>
@@ -149,15 +155,37 @@ void ImageRenderWidget::startAudioThread()
 {
     std::shared_ptr<std::thread> m_audioUpdater(new std::thread([this]()
         {
-            QAudioFormat fmt;
-            fmt.setSampleRate(48000);
-            fmt.setSampleSize(16);
-            fmt.setChannelCount(2);
-            fmt.setCodec("audio/pcm");
-            fmt.setByteOrder(QAudioFormat::LittleEndian);
-            fmt.setSampleType(QAudioFormat::UnSignedInt);
-            std::shared_ptr<QAudioOutput>output(new QAudioOutput(fmt));
-            std::shared_ptr<QIODevice> audio_io(output->start());
+            // QAudioFormat fmt;
+            // fmt.setSampleRate(48000);
+            // fmt.setSampleFormat(QAudioFormat::Int16);
+            // fmt.setChannelCount(2);
+            // fmt.setCodec("audio/pcm");
+            // fmt.setByteOrder(QAudioFormat::LittleEndian);
+            // fmt.setSampleType(QAudioFormat::UnSignedInt);
+            // std::shared_ptr<QAudioOutput>output(new QAudioOutput(fmt));
+            // std::shared_ptr<QAudioDevice> audio_io(output->device());
+
+            QAudioFormat format;
+            // Set up the format, eg.
+            format.setSampleRate(48000);
+            format.setChannelCount(2);
+            format.setSampleFormat(QAudioFormat::Int16);
+
+            // QMediaDevices *m_devices = new m_devices(new QMediaDevices(this));
+            // const QList<QAudioDevice> devices = m_devices->audioOutputs();
+            // for (const QAudioDevice &deviceInfo : devices)
+            //     m_deviceBox->addItem(deviceInfo.description(), QVariant::fromValue(deviceInfo));
+
+            QAudioDevice info(QMediaDevices::defaultAudioOutput());
+            if (!info.isFormatSupported(format)) {
+                qWarning() << "Raw audio format not supported by backend, cannot play audio.";
+                return;
+            }
+
+            QScopedPointer<QAudioSink> audioOutput;
+            audioOutput.reset(new QAudioSink(info, format));
+            audioOutput->stop();
+            auto io = audioOutput->start();
 
             auto pcm_frames = m_videoDecoder->getPcmFrames();
             size_t index = 0;
@@ -165,13 +193,13 @@ void ImageRenderWidget::startAudioThread()
             auto start = std::chrono::steady_clock::now();
             while (thread_alive)
             {
-                audio_io->write(reinterpret_cast<char*>(&pcm_frames[index].buffer[0]), pcm_frames[index].buffer.size());
+                io->write(reinterpret_cast<char*>(&pcm_frames[index].buffer[0]), pcm_frames[index].buffer.size());
                 ++index;
                 if (index == max_size)
                 {
                     break;
                 }
-                while (thread_alive && static_cast<size_t>(output->bytesFree()) < pcm_frames[index].buffer.size())
+                while (thread_alive && static_cast<size_t>(audioOutput->bytesFree()) < pcm_frames[index].buffer.size())
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
@@ -186,8 +214,8 @@ void ImageRenderWidget::startAudioThread()
                     std::this_thread::sleep_for(std::chrono::milliseconds(should_wait));
                 }
             }
-            audio_io.reset();
-            output.reset();
+            audioOutput.reset();
+            // output.reset();
         })
         , [](std::thread* p) {p->join(); delete p; }
         );
