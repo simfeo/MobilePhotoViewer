@@ -28,13 +28,10 @@
    </property>
    <layout class="QHBoxLayout" name="horizontalLayout_2">
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1,1">
+     <layout class="QHBoxLayout" name="horizontalLayout" stretch="1">
       <property name="sizeConstraint">
        <enum>QLayout::SetMinAndMaxSize</enum>
       </property>
-      <item>
-       <layout class="QVBoxLayout" name="leftBar"/>
-      </item>
       <item>
        <layout class="QVBoxLayout" name="centerBar" stretch="0">
         <property name="sizeConstraint">
@@ -48,9 +45,6 @@
          </widget>
         </item>
        </layout>
-      </item>
-      <item>
-       <layout class="QVBoxLayout" name="rightBar"/>
       </item>
      </layout>
     </item>

@@ -11,9 +11,9 @@
 //#include <heifreader.h>
 //#include <Heif.h>
 
-#include <heif.h>
-#include <heif_context.h>
-#include <heif_api_structs.h>
+#include <libheif/heif.h>
+#include <libheif/heif_cxx.h>
+#include <libheif/api_structs.h>>
 
 #include <Tools/heifreader.h>
 
@@ -103,15 +103,7 @@ void HeifManager::manageHeif()
             heif_colorspace_RGB,
             heif_chroma_interleaved_RGBA,
             decode_options.get());
-        //}
-        //else
-        //{
-        //    err = heif_decode_image(handle,
-        //        &image,
-        //        heif_colorspace_RGB,
-        //        heif_chroma_interleaved_RGB,
-        //        decode_options.get());
-        //}
+
         if (err.code)
         {
             heif_image_handle_release(handle);
@@ -135,19 +127,7 @@ void HeifManager::manageHeif()
             memcpy(m_decodedImage.get(), img_plane, m_height * r_stride);
         }
 
-        for (const auto& metadata : handle->image->get_metadata())
-        {
-            if (metadata->item_type == "exif"
-                || metadata->item_type == "Exif")
-            {
-                m_imageEXIF = TinyEXIF::EXIFInfo();
-                m_imageEXIF.clear();
-                m_imageEXIF.parseFromEXIFSegment(&metadata->m_data[4], metadata->m_data.size() - 4);
-            }
-        }
     }
-
-
     
     HeifReader heif;
     heif.load(*istr.get());
@@ -177,142 +157,6 @@ void HeifManager::manageHeif()
             m_memoryVideo.reset(new JpegUtils::InMemoryVid(videoData));
         }
     }
-    /*
-    if (heif.hasSingleImage())
-    {
-        qDebug() << "has single image";
-    }
-    
-    if (heif.hasImageCollection())
-    {
-        qDebug() << "image collection";
-    }
-    
-    
-    std::shared_ptr<HEIF::Reader> reader(HEIF::Reader::Create(), [](HEIF::Reader* p) {HEIF::Reader::Destroy(p); });
-
-    if (reader->initialize(m_imagePath.toStdString().c_str()) != HEIF::ErrorCode::OK)
-    {
-        return;
-    }
-
-    HEIF::FileInformation fileInfo{};
-    reader->getFileInformation(fileInfo);
-
-
-    // Verify that the file has one or several images in the MetaBox
-    if (!(fileInfo.features & HEIF::FileFeatureEnum::HasSingleImage || fileInfo.features & HEIF::FileFeatureEnum::HasImageCollection))
-    {
-        return;
-    }
-
-    // Find the primary item ID.
-    */
-    //int primaryItemId = -1;
-    //heif.getPrimaryItem(primaryItemId);
-
-    /*
-    const HEIF::FourCC grid("grid");
-    HEIF::FourCC primaryType;
-    reader->getItemType(primaryItemId, primaryType);
-    */
-   /*
-    reader->getWidth(primaryItemId, m_width);
-    reader->getHeight(primaryItemId, m_height);
-
-    HEIF::ErrorCode image_decoded;
-
-    if (primaryType == grid)
-    {
-        HEIF::Array<HEIF::ImageId> masterIds;
-        reader->getMasterImages(masterIds);
-
-    }
-    else
-    {
-
-        qDebug() << primaryItemId.get() << m_width << "x" << m_height;
-
-        size_t imgBufSize = m_width * m_height * 4;
-        m_decodedImage.reset(new uint8_t[imgBufSize], [](uint8_t* p) {delete[] p; });
-
-        image_decoded = reader->getItemDataWithDecoderParameters(primaryItemId, m_decodedImage.get(), imgBufSize);
-    }
-    */
-    // Find item(s) referencing to the primary item with "cdsc" (content describes) item reference.
-   
-    /*
-    HEIF::Array<HEIF::ImageId> metadataIds;
-    reader->getReferencedToItemListByType(primaryItemId, "cdsc", metadataIds);
-    HEIF::ImageId exifItemId = metadataIds[0];
-
-    // Optional: verify the item ID we got is really of "Exif" type.
-    HEIF::FourCC itemType;
-    reader->getItemType(exifItemId, itemType);
-    if (itemType != "Exif" && !m_decodedImage)
-    {
-        return;
-    }
-
-    // Get item size from parsed information.
-    const auto it = std::find_if(fileInfo.rootMetaBoxInformation.itemInformations.begin(),
-                                 fileInfo.rootMetaBoxInformation.itemInformations.end(),
-                                 [exifItemId](HEIF::ItemInformation a) { return a.itemId == exifItemId; });
-    if (it == fileInfo.rootMetaBoxInformation.itemInformations.end())
-    {
-        return;
-    }
-    size_t itemSize = it->size;
-
-    // Request item data.
-    std::shared_ptr<uint8_t> memoryBuffer(new uint8_t[itemSize], [](uint8_t* p) {delete[] p; });
-    reader->getItemData(metadataIds[0], memoryBuffer.get(), itemSize);
-
-
-    m_imageEXIF = TinyEXIF::EXIFInfo();
-    m_imageEXIF.clear();
-    m_imageEXIF.parseFromEXIFSegment(memoryBuffer.get()+4, itemSize-4);
-    */
-    
-    /*
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Find the item ID of the first master image
-    HEIF::Array<HEIF::ImageId> masterIds;
-    reader->getMasterImages(masterIds);
-    const HEIF::ImageId masterId = masterIds[0];
-
-
-    itemSize = 1024 * 1024;
-    auto* itemData = new uint8_t[itemSize];
-
-    for (const auto masterId : masterIds)
-    {
-        uint32_t width, height;
-        reader->getWidth(masterId, width);
-        reader->getHeight(masterId, height);
-        qDebug() << masterId.get() << width << "x" << height;
-    }
-
-    HEIF::Array<HEIF::ImageId> identityIds;
-    reader->getItemListByType("iden", identityIds);
-
-    HEIF::Array<HEIF::ImageId> referencedImages;
-    reader->getReferencedFromItemListByType(identityIds[0], "dimg", referencedImages);
-
-    HEIF::Array<HEIF::ItemPropertyInfo> propertyInfos;
-    reader->getItemProperties(identityIds[0], propertyInfos);
-
-    unsigned int rotation = 0;
-    for (const auto& property : propertyInfos)
-    {
-        if (property.type == HEIF::ItemPropertyType::IROT)
-        {
-            HEIF::Rotate irot;
-            reader->getProperty(property.index, irot);
-            rotation = irot.angle;
-        }
-    }
-    */
 }
 
 bool HeifManager::HasMicrovideo()
