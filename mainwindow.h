@@ -3,8 +3,8 @@
 
 #include <QMainWindow>
 #include <QString>
-#include <jpegmanager.h>
-#include <heifmanager.h>
+#include <Tools/imagewithvideobase.h>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -36,8 +36,8 @@ protected:
 
 private:
     Ui::MainWindow*     ui;
-    JpegManager*        m_jpegMgr;
-    HeifManager*        m_heifMgr;
     QString             m_currentPath;
+    QList<QString>      m_supportedFormats;
+    std::shared_ptr<ImageWithVideoBase> m_imageManager;
 };
 #endif // MAINWINDOW_H

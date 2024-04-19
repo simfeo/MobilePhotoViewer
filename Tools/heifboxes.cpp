@@ -1,8 +1,8 @@
 #include "heifboxes.h"
 
-#include <Tools/jpeginmemoryvideo.h>
+#include <Tools/ramfile.h>
 
-HeifBoxBase::HeifBoxBase(std::shared_ptr<JpegUtils::InMemoryVid> boxmem)
+HeifBoxBase::HeifBoxBase(std::shared_ptr<Utils::RamFile> boxmem)
     : m_size(0)
     , m_type("")
     , m_uid({})
@@ -25,7 +25,7 @@ void HeifBoxBase::parseHeaders()
     m_type.resize(4);
     if (m_boxMemory->FileStreamRead(reinterpret_cast<uint8_t*>(&m_type[0]), 4) < 4)
     {
-        m_size == 0;
+        m_size = 0;
         return;
     }
 
@@ -78,7 +78,7 @@ SefdBox::SefdBox()
 {
 }
 
-SefdBox::SefdBox(std::shared_ptr<JpegUtils::InMemoryVid> boxMem)
+SefdBox::SefdBox(std::shared_ptr<Utils::RamFile> boxMem)
     : HeifBoxBase(boxMem)
     , m_ftypStartPos(0)
     , m_ftyp()
@@ -141,7 +141,7 @@ void SefdBox::parseSefd()
 
         if (m_boxMemory->FileStreamRead(reinterpret_cast<uint8_t*>(&field[0]), next_field_length) < next_field_length)
         {
-            m_size == 0;
+            m_size = 0;
             return;
         }
 
@@ -222,7 +222,7 @@ FtypBox::FtypBox()
 {
 }
 
-FtypBox::FtypBox(std::shared_ptr<JpegUtils::InMemoryVid> boxMem)
+FtypBox::FtypBox(std::shared_ptr<Utils::RamFile> boxMem)
     : HeifBoxBase(boxMem)
 {
     parseHeaderFull();
@@ -245,7 +245,7 @@ void FtypBox::parseHeaderFull()
     m_majorBrand.resize(4);
     if (m_boxMemory->FileStreamRead(reinterpret_cast<uint8_t*>(&m_majorBrand[0]), 4) < 4)
     {
-        m_size == 0;
+        m_size = 0;
         return;
     }
 
@@ -269,7 +269,7 @@ void FtypBox::parseHeaderFull()
         minType.resize(4);
         if (m_boxMemory->FileStreamRead(reinterpret_cast<uint8_t*>(&minType[0]), 4) < 4)
         {
-            m_size == 0;
+            m_size = 0;
             return;
         }
         m_minorBrands.emplace_back(std::move(minType));
@@ -283,7 +283,7 @@ MdatBox::MdatBox()
 {
 }
 
-MdatBox::MdatBox(std::shared_ptr<JpegUtils::InMemoryVid> boxMem)
+MdatBox::MdatBox(std::shared_ptr<Utils::RamFile> boxMem)
     : HeifBoxBase(boxMem)
 {
     parseHeaderFull();

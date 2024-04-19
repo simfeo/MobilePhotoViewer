@@ -1,14 +1,8 @@
-#include "jpeginmemoryvideo.h"
+#include "ramfile.h"
 
-extern "C"
+namespace Utils
 {
-#include <libavformat/avformat.h>
-#include <libavutil/dict.h>
-}
-
-namespace JpegUtils
-{
-    InMemoryVid::InMemoryVid(std::vector<uint8_t>& invec)
+    RamFile::RamFile(std::vector<uint8_t>& invec)
         :m_currentPos(0)
     {
         m_bufferVec = std::move(invec);
@@ -16,7 +10,7 @@ namespace JpegUtils
         m_buffer = &m_bufferVec[0];
     }
 
-    InMemoryVid::InMemoryVid(uint8_t* buf, size_t len)
+    RamFile::RamFile(uint8_t* buf, size_t len)
         : m_length(len)
         , m_currentPos(0)
     {
@@ -25,7 +19,7 @@ namespace JpegUtils
         m_buffer = &m_bufferVec[0];
     }
 
-    int InMemoryVid::FileStreamRead(uint8_t* buf, int buf_size)
+    int RamFile::FileStreamRead(uint8_t* buf, int buf_size)
     {
         if (m_currentPos < static_cast<int64_t>(m_length))
         {
@@ -41,7 +35,7 @@ namespace JpegUtils
         return -1;
     }
 
-    int InMemoryVid::setPosition(int64_t newPos)
+    int RamFile::setPosition(int64_t newPos)
     {
         if (newPos >= 0 && newPos <= static_cast<int64_t>(m_length))
         {
@@ -51,12 +45,12 @@ namespace JpegUtils
         return -1;
     }
 
-    int64_t InMemoryVid::getPosition()
+    int64_t RamFile::getPosition()
     {
         return m_currentPos;
     }
 
-    size_t InMemoryVid::getSize()
+    size_t RamFile::getSize()
     {
         return m_length;
     }
@@ -64,21 +58,21 @@ namespace JpegUtils
     int FileStreamRead(void* ptr, uint8_t* buf, int buf_size)
     {
         // This is your IStream
-        InMemoryVid* stream = reinterpret_cast<InMemoryVid*>(ptr);
+        RamFile* stream = reinterpret_cast<RamFile*>(ptr);
 
         int bytesRead = stream->FileStreamRead(buf, buf_size);
 
-        if (bytesRead == -1)
-        {
-            return AVERROR_EOF;  // End of file
-        }
+        // if (bytesRead == -1)
+        // {
+        //     return AVERROR_EOF;  // End of file
+        // }
 
         return bytesRead;
     }
 
     int64_t FileStreamSeek(void* ptr, int64_t offset, int whence)
     {
-        InMemoryVid* stream = reinterpret_cast<InMemoryVid*>(ptr);
+        RamFile* stream = reinterpret_cast<RamFile*>(ptr);
 
         switch (whence)
         {
@@ -88,11 +82,11 @@ namespace JpegUtils
             return stream->setPosition(stream->getPosition() + offset) != -1 ? stream->getPosition() : -1;
         case SEEK_END:
             return stream->setPosition(stream->getSize() + offset) != -1 ? stream->getPosition() : -1;
-        case AVSEEK_SIZE:
-        {
-            // Special whence for determining filesize without any seek.
-            return stream->getSize();
-        }
+        // case AVSEEK_SIZE:
+        // {
+        //     // Special whence for determining filesize without any seek.
+        //     return stream->getSize();
+        // }
         break;
         }
         return -1;

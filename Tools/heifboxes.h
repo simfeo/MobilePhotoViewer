@@ -5,16 +5,16 @@
 #include <vector>
 #include <memory>
 
-namespace JpegUtils
+namespace Utils
 {
-    class InMemoryVid;
+    class RamFile;
 }
 
 
 class HeifBoxBase
 {
 public:
-    HeifBoxBase(std::shared_ptr<JpegUtils::InMemoryVid> boxMem);
+    HeifBoxBase(std::shared_ptr<Utils::RamFile> boxMem);
     void parseHeaders();
     const std::string getType() const;
     const uint64_t getSize() const;
@@ -23,14 +23,14 @@ protected:
     uint64_t                    m_size;
     std::string                 m_type;
     std::vector<uint8_t>        m_uid;
-    std::shared_ptr<JpegUtils::InMemoryVid> m_boxMemory;
+    std::shared_ptr<Utils::RamFile> m_boxMemory;
 };
 
 class FtypBox : public HeifBoxBase
 {
 public:
     FtypBox();
-    FtypBox(std::shared_ptr<JpegUtils::InMemoryVid> boxMem);
+    FtypBox(std::shared_ptr<Utils::RamFile> boxMem);
     const std::string GetMajorBand() const;
     const std::vector<std::string> getMinorBrands() const;
 private:
@@ -45,7 +45,7 @@ class MdatBox : public HeifBoxBase
 {
 public:
     MdatBox();
-    MdatBox(std::shared_ptr<JpegUtils::InMemoryVid> boxMem);
+    MdatBox(std::shared_ptr<Utils::RamFile> boxMem);
     const uint64_t startPosition() const;
     const uint64_t endPosition() const;
 private:
@@ -59,7 +59,7 @@ class SefdBox : public HeifBoxBase
 {
 public:
     SefdBox();
-    SefdBox(std::shared_ptr<JpegUtils::InMemoryVid> boxMem);
+    SefdBox(std::shared_ptr<Utils::RamFile> boxMem);
     FtypBox& getFtyp();
     MdatBox& getMdat();
     uint64_t getFtypStartPos();

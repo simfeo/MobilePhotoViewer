@@ -1,6 +1,6 @@
 #include "heifreader.h"
 
-#include <Tools/jpeginmemoryvideo.h>
+#include <Tools/ramfile.h>
 
 #include <string>
 
@@ -211,7 +211,7 @@ HeifHelpers::OperationResult HeifReader::handleSefd(std::ifstream& fstream)
     std::vector<uint8_t> boxDataRaw;
     m_sefdOffset = fstream.tellg();
     HeifHelpers::OperationResult result = readBox(fstream, boxDataRaw);
-    std::shared_ptr<JpegUtils::InMemoryVid> boxData(new JpegUtils::InMemoryVid(boxDataRaw));
+    std::shared_ptr<Utils::RamFile> boxData(new Utils::RamFile(boxDataRaw));
 
     if (result != HeifHelpers::OperationResult::Ok)
     {

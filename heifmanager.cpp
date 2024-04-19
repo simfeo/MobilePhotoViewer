@@ -1,19 +1,17 @@
 #include "heifmanager.h"
-#include <Tools/jpeginmemoryvideo.h>
 
 #include <QDebug>
 #include <QImage>
 
 #include <iostream>
 #include <fstream>  // std::ifstream
-#include <videodecoder.h>
 
 //#include <heifreader.h>
 //#include <Heif.h>
 
 #include <libheif/heif.h>
 #include <libheif/heif_cxx.h>
-#include <libheif/api_structs.h>>
+#include <libheif/api_structs.h>
 
 #include <Tools/heifreader.h>
 
@@ -22,7 +20,6 @@ HeifManager::HeifManager(const QString& imgPath)
     , m_height(0)
     , m_imagePath(imgPath)
     , m_decodedImage(nullptr)
-    , m_memoryVideo(nullptr)
 {
     manageHeif();
 }
@@ -146,7 +143,8 @@ void HeifManager::manageHeif()
         {
             istr->seekg(heif.getSefdOffset() + sf.getFtypStartPos());
             istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
-            m_memoryVideo.reset(new JpegUtils::InMemoryVid(videoData));
+            m_memoryVideo.reset(new QBuffer());
+            m_memoryVideo->setData(reinterpret_cast<char *>(videoData.data()), videoData.size());
         }
         else
         {
@@ -154,19 +152,10 @@ void HeifManager::manageHeif()
 
             istr->seekg(heif.getSefdOffset() + sf.getFtypStartPos());
             istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
-            m_memoryVideo.reset(new JpegUtils::InMemoryVid(videoData));
+            m_memoryVideo.reset(new QBuffer());
+            m_memoryVideo->setData(reinterpret_cast<char *>(videoData.data()), videoData.size());
         }
     }
-}
-
-bool HeifManager::HasMicrovideo()
-{
-    return m_imageEXIF.MicroVideo.HasMicroVideo;
-}
-
-std::shared_ptr<JpegUtils::InMemoryVid> HeifManager::getVideoMemory()
-{
-    return m_memoryVideo;
 }
 
 size_t HeifManager::getWidth() const

@@ -4,6 +4,11 @@
 #include <QWidget>
 #include <memory>
 
+#include "videowidget.h"
+#include <QMediaPlayer>
+#include <QAudioOutput>
+#include <QBuffer>
+
 namespace Ui {
     class ImageRenderWidget;
 }
@@ -26,13 +31,14 @@ public:
 
     void SetPixmap(const QPixmap& image);
     void SetPlayButtonVisible(bool state);
-    void SetVideoManager(std::shared_ptr<VideoDecoder> videoDecoder);
+    void SetVideoManager(std::shared_ptr<QBuffer> videoBuff);
 
 signals:
     void playVideoButtonClickedSignal();
 
 private slots:
     void on_playButton_clicked();
+    void statusChanged(QMediaPlayer::MediaStatus status);
 
 private:
     void startVideoThread();
@@ -44,10 +50,12 @@ protected:
 private:
     Ui::ImageRenderWidget*          m_ui;
     std::shared_ptr<QPixmap>        m_stillImage;
-    std::shared_ptr<VideoDecoder>   m_videoDecoder;
     std::shared_ptr<QImage>         m_nextImage;
-    std::shared_ptr<std::thread>    m_videoUpdater;
-    std::shared_ptr<std::thread>    m_audioUpdater;
+
+    VideoWidget* m_videoWidget;
+    QMediaPlayer* m_player;
+    QAudioOutput* m_audioOutput;
+
 };
 
 #endif // IMAGERENDERWIDGET_H

@@ -19,34 +19,28 @@
 
 #include <QDebug>
 
-#include <memory>
-#include <math.h>
-
-#include "videodecoder.h"
+#include <jpegmanager.h>
+#include <heifmanager.h>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , m_jpegMgr(nullptr)
-    , m_heifMgr(nullptr)
     , m_currentPath()
+    , m_imageManager(nullptr)
 {
     ui->setupUi(this);
     setAcceptDrops(true);
+    for (auto& i : QImageReader::supportedImageFormats())
+    {
+        m_supportedFormats.append("*."+i);
+    }
+    m_supportedFormats.append("*.heic");
+    m_supportedFormats.append("*.heif");
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-    if (m_jpegMgr)
-    {
-        delete m_jpegMgr;
-    }
-
-    if (m_heifMgr)
-    {
-        delete m_heifMgr;
-    }
 }
 
 void MainWindow::SetImage(const QString& imgPath)
@@ -60,36 +54,27 @@ void MainWindow::SetImage(const QString& imgPath)
     ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
     if (imgPath.endsWith("jpeg") || imgPath.endsWith("jpg"))
     {
-        m_jpegMgr = new JpegManager(imgPath);
-        if (m_jpegMgr->HasMicrovideo())
-        {
-            std::shared_ptr<VideoDecoder> vv(new VideoDecoder(m_jpegMgr->getVideoMemory()));
-            if (vv->isVideoInited())
-            {
-                ui->photoVidget->SetPlayButtonVisible(true);
-                ui->photoVidget->SetVideoManager(vv);
-            }
-        }
+        m_imageManager.reset(new JpegManager(imgPath));
     }
     else if (imgPath.endsWith("heic") || imgPath.endsWith("heif"))
     {
-        m_heifMgr = new HeifManager(imgPath);
+        m_imageManager.reset(new HeifManager(imgPath));
 
-        if (m_heifMgr->getWidth()  && m_heifMgr->getHeight())
+        if (m_imageManager->getWidth()  && m_imageManager->getHeight())
         {
-            QImage qimg = QImage(m_heifMgr->getDecodedImage().get(), static_cast<int>(m_heifMgr->getWidth()), static_cast<int>(m_heifMgr->getHeight()), QImage::Format_RGBA8888);
+            QImage qimg = QImage(m_imageManager->getDecodedImage().get(), static_cast<int>(m_imageManager->getWidth()), static_cast<int>(m_imageManager->getHeight()), QImage::Format_RGBA8888);
             ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
         }
-        if (m_heifMgr->HasMicrovideo())
-        {
-            std::shared_ptr<VideoDecoder> vv(new VideoDecoder(m_heifMgr->getVideoMemory()));
-            if (vv->isVideoInited())
-            {
-                ui->photoVidget->SetPlayButtonVisible(true);
-                ui->photoVidget->SetVideoManager(vv);
-            }
-        }
     }
+    else
+    {
+        m_imageManager.reset(new ImageWithVideoBase());
+    }
+    if (m_imageManager->HasMicrovideo())
+    {
+        ui->photoVidget->SetVideoManager(m_imageManager->getVideoMemory());
+    }
+    setWindowTitle(imgPath);
     repaint();
 }
 
@@ -130,7 +115,7 @@ void MainWindow::wheelEvent(QWheelEvent *event)
     if (numSteps.y() != 0 && m_currentPath.size() != 0)
     {
         QDir workingDir = QFileInfo( m_currentPath ).absoluteDir();
-        QStringList images = workingDir.entryList(QStringList() << "*.jpg" << "*.JPG",QDir::Files);
+        QStringList images = workingDir.entryList(m_supportedFormats,QDir::Files);
         if (images.empty())
         {
             return;

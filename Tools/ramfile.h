@@ -1,16 +1,16 @@
-#ifndef JPEGINMEMORYVIDEO_H
-#define JPEGINMEMORYVIDEO_H
+#ifndef RAMFILE_H
+#define RAMFILE_H
 
 #include <stdint.h>
 #include <vector>
 
-namespace JpegUtils
+namespace Utils
 {
-    class InMemoryVid
+    class RamFile
     {
     public:
-        InMemoryVid(std::vector<uint8_t>& invec);
-        InMemoryVid(uint8_t* buf, size_t len);
+        RamFile(std::vector<uint8_t>& invec);
+        RamFile(uint8_t* buf, size_t len);
 
         int FileStreamRead(uint8_t* buf, int buf_size);
         int setPosition(int64_t newPos);
@@ -27,4 +27,4 @@ namespace JpegUtils
     int FileStreamRead(void* ptr, uint8_t* buf, int buf_size);
     int64_t FileStreamSeek(void* ptr, int64_t offset, int whence);
 }
-#endif // JPEGINMEMORYVIDEO_H
+#endif // RAMFILE_H

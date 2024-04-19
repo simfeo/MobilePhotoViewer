@@ -3,6 +3,8 @@
 
 #include <QString>
 #include <memory>
+
+#include <Tools/imagewithvideobase.h>
 #include <tinyexif/TinyEXIF.h>
 
 namespace JpegUtils
@@ -10,25 +12,22 @@ namespace JpegUtils
     class InMemoryVid;
 }
 
-class HeifManager
+class HeifManager : public ImageWithVideoBase
 {
 public:
     HeifManager(const QString& imgPath);
 
     void manageHeif();
-    bool HasMicrovideo();
-    std::shared_ptr<JpegUtils::InMemoryVid> getVideoMemory();
 
-    size_t getWidth() const;
-    size_t getHeight() const;
-    std::shared_ptr<uint8_t> getDecodedImage();
+    size_t getWidth() const override;
+    size_t getHeight() const override;
+    std::shared_ptr<uint8_t> getDecodedImage() override;
 
 private:
     uint32_t                                m_width;
     uint32_t                                m_height;
     QString                                 m_imagePath;
     std::shared_ptr<uint8_t>                m_decodedImage;
-    std::shared_ptr<JpegUtils::InMemoryVid> m_memoryVideo;
     TinyEXIF::EXIFInfo                      m_imageEXIF;
 };
 

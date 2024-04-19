@@ -1,7 +1,7 @@
 QT       += core gui
 QT       += multimedia multimediawidgets
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 6): QT += widgets
 
 CONFIG += c++11
 
@@ -12,7 +12,8 @@ CONFIG += c++11
 SOURCES += \
     Tools/heifboxes.cpp \
     Tools/heifreader.cpp \
-    Tools/jpeginmemoryvideo.cpp \
+    Tools/imagewithvideobase.cpp \
+    Tools/ramfile.cpp \
     heifmanager.cpp \
     imagerenderwidget.cpp \
     jpegmanager.cpp \
@@ -20,23 +21,25 @@ SOURCES += \
     mainwindow.cpp \
     tinyexif/TinyEXIF.cpp \
     tinyexif/tinyxml2.cpp \
-    videodecoder.cpp
+    videowidget.cpp
 
 HEADERS += \
     Tools/heifboxes.h \
     Tools/heifreader.h \
-    Tools/jpeginmemoryvideo.h \
+    Tools/imagewithvideobase.h \
+    Tools/ramfile.h \
     heifmanager.h \
     imagerenderwidget.h \
     jpegmanager.h \
     mainwindow.h \
     tinyexif/TinyEXIF.h \
     tinyexif/tinyxml2.h \
-    videodecoder.h
+    videowidget.h
 
 FORMS += \
     imagerenderwidget.ui \
-    mainwindow.ui
+    mainwindow.ui \
+    videowidget.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -45,8 +48,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 win32
 {
-    INCLUDEPATH += $$PWD/../../ffmpeg_own/installed/include
-    LIBS += -L$$PWD/../../ffmpeg_own/installed/bin -lavcodec -lavformat -lavfilter -lavutil -lswscale -lswresample
+    # INCLUDEPATH += $$PWD/../../ffmpeg_own/installed/include
+    # LIBS += -L$$PWD/../../ffmpeg_own/installed/bin -lavcodec -lavformat -lavfilter -lavutil -lswscale -lswresample
 
 
     INCLUDEPATH += $$PWD/../../libheif/libheif/

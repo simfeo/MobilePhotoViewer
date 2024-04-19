@@ -1,7 +1,5 @@
 #include "jpegmanager.h"
 
-#include <Tools/jpeginmemoryvideo.h>
-
 #include <QDebug>
 #include <QImage>
 
@@ -11,7 +9,6 @@
 
 JpegManager::JpegManager(const QString& imgPath)
     : m_imagePath(imgPath)
-    , m_memoryVideo(nullptr)
 {
     manageJpeg();
 }
@@ -36,17 +33,8 @@ void JpegManager::manageJpeg()
         {
             qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;
             size_t offset = data.size() - m_imageEXIF.MicroVideo.MicroVideoOffset;
-            m_memoryVideo.reset(new JpegUtils::InMemoryVid(data.data() + offset, data.size() - offset));
+            m_memoryVideo.reset(new QBuffer());
+            m_memoryVideo->setData(reinterpret_cast<char *>(data.data() + offset), data.size() - offset);
         }
     }
-}
-
-bool JpegManager::HasMicrovideo()
-{
-    return m_imageEXIF.MicroVideo.HasMicroVideo;
-}
-
-std::shared_ptr<JpegUtils::InMemoryVid> JpegManager::getVideoMemory()
-{
-    return m_memoryVideo;
 }

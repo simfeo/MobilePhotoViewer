@@ -2,7 +2,8 @@
 #define JPEGMANAGER_H
 
 #include <QString>
-#include <memory>
+
+#include <Tools/imagewithvideobase.h>
 #include <tinyexif/TinyEXIF.h>
 
 class QImage;
@@ -12,19 +13,16 @@ namespace JpegUtils
     class InMemoryVid;
 }
 
-class JpegManager
+class JpegManager : public ImageWithVideoBase
 {
 public:
     JpegManager(const QString& imgPath);
 
     void manageJpeg();
-    bool HasMicrovideo();
-    std::shared_ptr<JpegUtils::InMemoryVid> getVideoMemory();
 
 private:
-    QString                                 m_imagePath;
-    TinyEXIF::EXIFInfo                      m_imageEXIF;
-    std::shared_ptr<JpegUtils::InMemoryVid> m_memoryVideo;
+    QString                     m_imagePath;
+    TinyEXIF::EXIFInfo          m_imageEXIF;
 };
 
 #endif // JPEGMANAGER_H
