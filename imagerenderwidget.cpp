@@ -34,8 +34,8 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
 
 ImageRenderWidget::~ImageRenderWidget()
 {
-    delete m_ui;
     m_player->stop();
+    delete m_ui;
 }
 
 void ImageRenderWidget::SetPixmap(const QPixmap& image)
