@@ -27,6 +27,10 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_player->setAudioOutput(m_audioOutput);
 
     m_videoWidget = new VideoWidget(this);
+    // Fill the still-photo rectangle exactly. A motion-photo video shares the
+    // still's framing, so ignoring the (sub-percent) aspect difference matches
+    // the photo without a visible letterbox.
+    m_videoWidget->setAspectRatioMode(Qt::IgnoreAspectRatio);
     m_player->setVideoOutput(m_videoWidget);
     m_videoWidget->hide();
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &ImageRenderWidget::statusChanged);
@@ -62,28 +66,53 @@ void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
     m_player->setSourceDevice(btArray);
 }
 
+// Rectangle the current image is drawn into: scaled to fit while keeping the
+// aspect ratio, then centred. The video overlay is sized to this same rect.
+QRect ImageRenderWidget::currentImageRect() const
+{
+    QSize src;
+    if (m_nextImage)
+        src = m_nextImage->size();
+    else if (m_stillImage)
+        src = m_stillImage->size();
+
+    if (src.isEmpty())
+        return QRect();
+
+    QSize scaled = src.scaled(size(), Qt::KeepAspectRatio);
+    int x_offset = (width() - scaled.width()) / 2;
+    int y_offset = (height() - scaled.height()) / 2;
+    return QRect(x_offset, y_offset, scaled.width(), scaled.height());
+}
+
+void ImageRenderWidget::updateVideoGeometry()
+{
+    const QRect r = currentImageRect();
+    if (r.isValid())
+        m_videoWidget->setGeometry(r);
+}
+
 void ImageRenderWidget::paintEvent(QPaintEvent* event)
 {
     (void)event;
-    if (m_stillImage && !m_nextImage)
-    {
-        QPainter painter(this);
-        auto m = m_stillImage->scaled(width(), height(), Qt::KeepAspectRatio);
-        int x_offset = (width() - m.width()) / 2;
-        int y_offset = (height() - m.height()) / 2;
-        painter.drawPixmap(x_offset, y_offset, m);
-        m_videoWidget->setGeometry(x_offset, y_offset, m.width(), m.height());
-    }
-    else if (m_nextImage)
-    {
-        QPainter painter(this);
-        QPixmap dstPix = QPixmap::fromImage(*m_nextImage.get());
-        auto m = dstPix.scaled(width(), height(), Qt::KeepAspectRatio);
-        int x_offset = (width() - m.width()) / 2;
-        int y_offset = (height() - m.height()) / 2;
-        painter.drawPixmap(x_offset, y_offset, m);
-        m_videoWidget->setGeometry(x_offset, y_offset, m.width(), m.height());
-    }
+    const QRect r = currentImageRect();
+    if (!r.isValid())
+        return;
+
+    QPainter painter(this);
+    if (m_nextImage)
+        painter.drawPixmap(r, QPixmap::fromImage(*m_nextImage.get()));
+    else
+        painter.drawPixmap(r, *m_stillImage);
+}
+
+void ImageRenderWidget::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    // Keep the video overlay aligned with the photo on every size change.
+    // Doing this here (rather than in paintEvent) keeps the native video
+    // surface in sync even while a video is playing and covering the widget.
+    updateVideoGeometry();
 }
 
 void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
@@ -121,6 +150,7 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
 void ImageRenderWidget::on_playButton_clicked()
 {
     m_ui->playButton->hide();
+    updateVideoGeometry(); // ensure the overlay matches the photo before showing
     m_videoWidget->show();
     m_player->play();
 }

@@ -44,8 +44,12 @@ private:
     void startVideoThread();
     void startAudioThread();
 
+    QRect currentImageRect() const;
+    void updateVideoGeometry();
+
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     Ui::ImageRenderWidget*          m_ui;
