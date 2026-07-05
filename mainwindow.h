@@ -26,6 +26,7 @@ class QModelIndex;
 class QImage;
 class QAction;
 class ThumbnailModel;
+class PanoramaWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -61,6 +62,7 @@ private slots:
 private:
     void setupBrowser();
     void setupMenus();
+    bool tryOpenPanorama(const QString& path);   // returns true if shown as a sphere
     void showViewMode();
     void showBrowseMode();
     void setFullScreenView(bool on);
@@ -83,5 +85,6 @@ private:
     QTreeWidget*        m_metadata;
     QAction*            m_fullScreenAction;
     QAction*            m_saveVideoAction;
+    PanoramaWidget*     m_pano;
 };
 #endif // MAINWINDOW_H

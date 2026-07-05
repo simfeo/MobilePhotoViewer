@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # --------------------------------------------------------------------------
 # Qt
 # --------------------------------------------------------------------------
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets)
 # qt_standard_project_setup() is called later, after the third-party
 # dependencies are added, so AUTOMOC/AUTOUIC don't needlessly scan them.
 
@@ -108,6 +108,7 @@ qt_add_executable(MobilePhotoViewer WIN32
     heifmanager.cpp       heifmanager.h
     jpegmanager.cpp       jpegmanager.h
     thumbnailmodel.cpp    thumbnailmodel.h
+    panoramawidget.cpp    panoramawidget.h
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
@@ -131,6 +132,7 @@ target_include_directories(MobilePhotoViewer PRIVATE
 
 target_link_libraries(MobilePhotoViewer PRIVATE
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Multimedia Qt6::MultimediaWidgets
+    Qt6::OpenGL Qt6::OpenGLWidgets
     heif
 )
 

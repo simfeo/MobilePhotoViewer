@@ -46,6 +46,7 @@
 #include <TinyEXIF.h>
 
 #include "thumbnailmodel.h"
+#include "panoramawidget.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -54,6 +55,7 @@ MainWindow::MainWindow(QWidget* parent)
     , m_imageManager(nullptr)
     , m_fullScreenAction(nullptr)
     , m_saveVideoAction(nullptr)
+    , m_pano(nullptr)
 {
     ui->setupUi(this);
     setAcceptDrops(true);
@@ -97,6 +99,8 @@ void MainWindow::setupBrowser()
     m_stack->addWidget(m_grid);                 // index 0
     ui->photoVidget->setParent(m_stack);
     m_stack->addWidget(ui->photoVidget);        // index 1
+    m_pano = new PanoramaWidget(m_stack);
+    m_stack->addWidget(m_pano);                 // index 2 (photospheres)
     setCentralWidget(m_stack);
 
     // Folders dock (left, top)
@@ -181,12 +185,14 @@ void MainWindow::setupMenus()
         a->setShortcut(sc);
         a->setShortcutContext(Qt::WidgetWithChildrenShortcut);
         connect(a, &QAction::triggered, this, fn);
-        ui->photoVidget->addAction(a);
+        ui->photoVidget->addAction(a);   // active when either viewer is focused
+        m_pano->addAction(a);
         viewMenu->addAction(a);
     };
-    addViewerAction(tr("Zoom In"),   QKeySequence(Qt::Key_Plus),  [this]{ ui->photoVidget->zoomIn(); });
-    addViewerAction(tr("Zoom Out"),  QKeySequence(Qt::Key_Minus), [this]{ ui->photoVidget->zoomOut(); });
-    addViewerAction(tr("Fit to Window"), QKeySequence("Ctrl+0"),  [this]{ ui->photoVidget->resetZoom(); });
+    const auto inPano = [this]{ return m_stack->currentWidget() == m_pano; };
+    addViewerAction(tr("Zoom In"),   QKeySequence(Qt::Key_Plus),  [this, inPano]{ inPano() ? m_pano->zoomIn()  : ui->photoVidget->zoomIn(); });
+    addViewerAction(tr("Zoom Out"),  QKeySequence(Qt::Key_Minus), [this, inPano]{ inPano() ? m_pano->zoomOut() : ui->photoVidget->zoomOut(); });
+    addViewerAction(tr("Fit to Window"), QKeySequence("Ctrl+0"),  [this, inPano]{ inPano() ? m_pano->resetView() : ui->photoVidget->resetZoom(); });
     viewMenu->addSeparator();
     addViewerAction(tr("Previous Image"), QKeySequence(Qt::Key_Left),  [this]{ stepImage(-1); });
     addViewerAction(tr("Next Image"),     QKeySequence(Qt::Key_Right), [this]{ stepImage(1); });
@@ -377,10 +383,104 @@ void MainWindow::updateSidePanels(const QString& path)
 }
 
 // --------------------------------------------------------------------------
+// Panorama / photosphere
+// --------------------------------------------------------------------------
+// Read a GPano attribute or element value from a raw XMP blob (handles both
+// GPano:Name="value" and <GPano:Name>value</...> forms).
+static QString gpanoVal(const QByteArray& xmp, const char* name)
+{
+    const QByteArray key = QByteArray("GPano:") + name;
+    int i = xmp.indexOf(key);
+    if (i < 0)
+        return QString();
+    int p = i + key.size();
+    while (p < xmp.size() && xmp[p] != '"' && xmp[p] != '>') ++p;
+    if (p >= xmp.size())
+        return QString();
+    const char close = (xmp[p] == '"') ? '"' : '<';
+    const int s = p + 1;
+    const int e = xmp.indexOf(close, s);
+    if (e < 0)
+        return QString();
+    return QString::fromLatin1(xmp.mid(s, e - s)).trimmed();
+}
+
+bool MainWindow::tryOpenPanorama(const QString& path)
+{
+    const QString lower = path.toLower();
+    if (!(lower.endsWith("jpg") || lower.endsWith("jpeg")))
+        return false;
+
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return false;
+    const QByteArray head = f.read(512 * 1024);   // XMP sits near the start of the file
+    f.close();
+
+    if (gpanoVal(head, "ProjectionType").compare("equirectangular", Qt::CaseInsensitive) != 0)
+        return false;   // not an equirectangular pano -> show it flat
+
+    int fullW = gpanoVal(head, "FullPanoWidthPixels").toInt();
+    int fullH = gpanoVal(head, "FullPanoHeightPixels").toInt();
+    int cropW = gpanoVal(head, "CroppedAreaImageWidthPixels").toInt();
+    int cropH = gpanoVal(head, "CroppedAreaImageHeightPixels").toInt();
+    int cropL = gpanoVal(head, "CroppedAreaLeftPixels").toInt();
+    int cropT = gpanoVal(head, "CroppedAreaTopPixels").toInt();
+
+    QImageReader r(path);
+    r.setAutoTransform(true);
+    QImage img = r.read();
+    if (img.isNull())
+        return false;
+
+    if (fullW <= 0 || fullH <= 0) { fullW = img.width(); fullH = img.height(); cropW = fullW; cropH = fullH; cropL = cropT = 0; }
+    if (cropW <= 0) cropW = img.width();
+    if (cropH <= 0) cropH = img.height();
+
+    // Cap the texture to a safe GL size, keeping the full 2:1 canvas ratio.
+    const int maxW = 8192;
+    const double scale = fullW > maxW ? double(maxW) / fullW : 1.0;
+    const int cw = qMax(1, int(fullW * scale));
+    const int ch = qMax(1, int(fullH * scale));
+
+    QImage canvas;
+    if (cropW == fullW && cropH == fullH && cropL == 0 && cropT == 0)
+    {
+        canvas = (scale < 1.0) ? img.scaled(cw, ch, Qt::IgnoreAspectRatio, Qt::SmoothTransformation) : img;
+    }
+    else
+    {
+        // Partial panorama: place the captured area on the full black sphere canvas.
+        canvas = QImage(cw, ch, QImage::Format_RGB888);
+        canvas.fill(Qt::black);
+        QImage piece = img.scaled(qMax(1, int(cropW * scale)), qMax(1, int(cropH * scale)),
+                                  Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        QPainter p(&canvas);
+        p.drawImage(int(cropL * scale), int(cropT * scale), piece);
+    }
+
+    m_pano->setPanorama(canvas.convertToFormat(QImage::Format_RGBA8888));
+    m_stack->setCurrentWidget(m_pano);
+    m_pano->setFocus();
+    return true;
+}
+
+// --------------------------------------------------------------------------
 // Viewing
 // --------------------------------------------------------------------------
 void MainWindow::SetImage(const QString& imgPath)
 {
+    m_currentPath = imgPath;
+    if (m_saveVideoAction)
+        m_saveVideoAction->setEnabled(false);
+
+    // Equirectangular photospheres/panoramas are shown in the spherical viewer.
+    if (tryOpenPanorama(imgPath))
+    {
+        setWindowTitle(imgPath);
+        return;
+    }
+
     ui->photoVidget->SetPlayButtonVisible(false);
     QImageReader imgReader(imgPath);
     imgReader.setAutoTransform(true);
@@ -559,8 +659,8 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     {
         if (isFullScreen())
             setFullScreenView(false);
-        else if (m_stack->currentWidget() == ui->photoVidget)
-            showBrowseMode();   // back to the thumbnails
+        else if (m_stack->currentWidget() != m_grid)
+            showBrowseMode();   // back to the thumbnails (from image or pano view)
     }
     else
     {
