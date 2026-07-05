@@ -53,6 +53,7 @@ private slots:
     void onThumbActivated(const QModelIndex& index);
     void onOpenFile();
     void onOpenFolder();
+    void onSaveVideo();
     void onAbout();
     void onLicensing();
     void onShortcuts();
@@ -81,5 +82,6 @@ private:
     QLabel*             m_preview;
     QTreeWidget*        m_metadata;
     QAction*            m_fullScreenAction;
+    QAction*            m_saveVideoAction;
 };
 #endif // MAINWINDOW_H

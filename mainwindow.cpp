@@ -53,6 +53,7 @@ MainWindow::MainWindow(QWidget* parent)
     , m_currentPath()
     , m_imageManager(nullptr)
     , m_fullScreenAction(nullptr)
+    , m_saveVideoAction(nullptr)
 {
     ui->setupUi(this);
     setAcceptDrops(true);
@@ -153,8 +154,14 @@ void MainWindow::setupMenus()
     QAction* openFolder = new QAction(tr("Open Folder..."), this);
     openFolder->setShortcut(QKeySequence("Ctrl+Shift+O"));
     ui->menuFile->insertAction(ui->actionExit, openFolder);
-    ui->menuFile->insertSeparator(ui->actionExit);
     connect(openFolder, &QAction::triggered, this, &MainWindow::onOpenFolder);
+
+    m_saveVideoAction = new QAction(tr("Save Video As..."), this);
+    m_saveVideoAction->setShortcut(QKeySequence("Ctrl+S"));
+    m_saveVideoAction->setEnabled(false);   // enabled only for motion photos
+    ui->menuFile->insertAction(ui->actionExit, m_saveVideoAction);
+    ui->menuFile->insertSeparator(ui->actionExit);
+    connect(m_saveVideoAction, &QAction::triggered, this, &MainWindow::onSaveVideo);
 
     ui->actionExit->setShortcut(QKeySequence("Ctrl+Q"));   // already wired to close() in the .ui
 
@@ -399,13 +406,38 @@ void MainWindow::SetImage(const QString& imgPath)
     {
         m_imageManager.reset(new ImageWithVideoBase());
     }
-    if (m_imageManager->HasMicrovideo())
-    {
+    const bool hasVideo = m_imageManager->HasMicrovideo();
+    if (hasVideo)
         ui->photoVidget->SetVideoManager(m_imageManager->getVideoMemory());
-    }
+    if (m_saveVideoAction)
+        m_saveVideoAction->setEnabled(hasVideo);
+
     setWindowTitle(imgPath);
     showViewMode();
     repaint();
+}
+
+void MainWindow::onSaveVideo()
+{
+    if (!m_imageManager || !m_imageManager->HasMicrovideo())
+        return;
+    std::shared_ptr<QBuffer> vid = m_imageManager->getVideoMemory();
+    if (!vid)
+        return;
+
+    const QString suggested = QFileInfo(m_currentPath).completeBaseName() + ".mp4";
+    const QString out = QFileDialog::getSaveFileName(
+        this, tr("Save video"),
+        QFileInfo(m_currentPath).absoluteDir().absoluteFilePath(suggested),
+        tr("Video (*.mp4 *.3gp);;All files (*.*)"));
+    if (out.isEmpty())
+        return;
+
+    QFile f(out);
+    if (f.open(QIODevice::WriteOnly))
+        f.write(vid->data());
+    else
+        QMessageBox::warning(this, tr("Save video"), tr("Could not write %1").arg(out));
 }
 
 void MainWindow::dropEvent(QDropEvent *event)
@@ -504,6 +536,7 @@ void MainWindow::onShortcuts()
         tr("<table cellpadding='4'>"
            "<tr><td><b>Ctrl+O</b></td><td>Open file</td></tr>"
            "<tr><td><b>Ctrl+Shift+O</b></td><td>Open folder</td></tr>"
+           "<tr><td><b>Ctrl+S</b></td><td>Save video (motion photos)</td></tr>"
            "<tr><td><b>Ctrl+B</b> / <b>Esc</b></td><td>Back to thumbnails</td></tr>"
            "<tr><td><b>+</b> / <b>&minus;</b></td><td>Zoom in / out</td></tr>"
            "<tr><td><b>Ctrl+0</b></td><td>Fit to window</td></tr>"
