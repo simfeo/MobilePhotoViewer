@@ -135,7 +135,8 @@ void HeifManager::manageHeif()
         && sf.getFtyp().GetMajorBand() == "mp42"
         && sf.getMdat().getSize() != 0
         && sf.getMdat().startPosition() != 0
-        && sf.getMdat().endPosition() != 0)
+        && sf.getMdat().endPosition() != 0
+        && sf.getFtypStartPos() < sf.getSize())   // guard the resize() below against underflow
     {
         m_imageEXIF.MicroVideo.HasMicroVideo = 1;
         std::vector<uint8_t> videoData;
