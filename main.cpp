@@ -3,11 +3,13 @@
 #include <QStyleFactory>
 #include <QApplication>
 #include <QFileInfo>
+#include <QIcon>
 
 int main(int argc, char* argv[])
 {
     QApplication a(argc, argv);
     QApplication::setStyle(QStyleFactory::create("Fusion"));
+    a.setWindowIcon(QIcon(":/appicon.png"));
     MainWindow w;
     w.show();
     if (QCoreApplication::arguments().size() > 1)
