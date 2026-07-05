@@ -385,26 +385,6 @@ void MainWindow::updateSidePanels(const QString& path)
 // --------------------------------------------------------------------------
 // Panorama / photosphere
 // --------------------------------------------------------------------------
-// Read a GPano attribute or element value from a raw XMP blob (handles both
-// GPano:Name="value" and <GPano:Name>value</...> forms).
-static QString gpanoVal(const QByteArray& xmp, const char* name)
-{
-    const QByteArray key = QByteArray("GPano:") + name;
-    int i = xmp.indexOf(key);
-    if (i < 0)
-        return QString();
-    int p = i + key.size();
-    while (p < xmp.size() && xmp[p] != '"' && xmp[p] != '>') ++p;
-    if (p >= xmp.size())
-        return QString();
-    const char close = (xmp[p] == '"') ? '"' : '<';
-    const int s = p + 1;
-    const int e = xmp.indexOf(close, s);
-    if (e < 0)
-        return QString();
-    return QString::fromLatin1(xmp.mid(s, e - s)).trimmed();
-}
-
 bool MainWindow::tryOpenPanorama(const QString& path)
 {
     const QString lower = path.toLower();
@@ -414,18 +394,19 @@ bool MainWindow::tryOpenPanorama(const QString& path)
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly))
         return false;
-    const QByteArray head = f.read(512 * 1024);   // XMP sits near the start of the file
+    const QByteArray head = f.read(512 * 1024);   // EXIF/XMP sit near the start of the file
     f.close();
 
-    if (gpanoVal(head, "ProjectionType").compare("equirectangular", Qt::CaseInsensitive) != 0)
+    TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(head.constData()), head.size());
+    if (!exif.GPano.isEquirectangular())
         return false;   // not an equirectangular pano -> show it flat
 
-    int fullW = gpanoVal(head, "FullPanoWidthPixels").toInt();
-    int fullH = gpanoVal(head, "FullPanoHeightPixels").toInt();
-    int cropW = gpanoVal(head, "CroppedAreaImageWidthPixels").toInt();
-    int cropH = gpanoVal(head, "CroppedAreaImageHeightPixels").toInt();
-    int cropL = gpanoVal(head, "CroppedAreaLeftPixels").toInt();
-    int cropT = gpanoVal(head, "CroppedAreaTopPixels").toInt();
+    int fullW = static_cast<int>(exif.GPano.FullPanoWidthPixels);
+    int fullH = static_cast<int>(exif.GPano.FullPanoHeightPixels);
+    int cropW = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
+    int cropH = static_cast<int>(exif.GPano.CroppedAreaImageHeightPixels);
+    int cropL = static_cast<int>(exif.GPano.CroppedAreaLeftPixels);
+    int cropT = static_cast<int>(exif.GPano.CroppedAreaTopPixels);
 
     QImageReader r(path);
     r.setAutoTransform(true);
