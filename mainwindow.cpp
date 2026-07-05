@@ -27,6 +27,14 @@
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QMenuBar>
+#include <QMenu>
+#include <QAction>
+#include <QMessageBox>
+#include <QKeySequence>
+#include <QSignalBlocker>
+#include <QApplication>
+
+#include <functional>
 #include <QItemSelectionModel>
 #include <QStandardPaths>
 
@@ -43,6 +51,7 @@ MainWindow::MainWindow(QWidget* parent)
     , ui(new Ui::MainWindow)
     , m_currentPath()
     , m_imageManager(nullptr)
+    , m_fullScreenAction(nullptr)
 {
     ui->setupUi(this);
     setAcceptDrops(true);
@@ -54,6 +63,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_supportedFormats.append("*.heif");
 
     setupBrowser();
+    setupMenus();
 }
 
 MainWindow::~MainWindow()
@@ -128,14 +138,73 @@ void MainWindow::setupBrowser()
             this, &MainWindow::onThumbSelected);
     connect(m_grid, &QListView::doubleClicked, this, &MainWindow::onThumbActivated);
 
-    // File menu: Open File... / Open Folder...
+    showBrowseMode();
+}
+
+void MainWindow::setupMenus()
+{
+    // ---- File ----
     ui->actionOpen->setText(tr("Open File..."));
+    ui->actionOpen->setShortcut(QKeySequence("Ctrl+O"));
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::onOpenFile);
+
     QAction* openFolder = new QAction(tr("Open Folder..."), this);
+    openFolder->setShortcut(QKeySequence("Ctrl+Shift+O"));
     ui->menuFile->insertAction(ui->actionExit, openFolder);
+    ui->menuFile->insertSeparator(ui->actionExit);
     connect(openFolder, &QAction::triggered, this, &MainWindow::onOpenFolder);
 
-    showBrowseMode();
+    ui->actionExit->setShortcut(QKeySequence("Ctrl+Q"));   // already wired to close() in the .ui
+
+    // ---- View (inserted between File and Help) ----
+    QMenu* viewMenu = new QMenu(tr("View"), this);
+    menuBar()->insertMenu(ui->menuHelp->menuAction(), viewMenu);
+
+    QAction* browse = viewMenu->addAction(tr("Thumbnails"), this, &MainWindow::showBrowseMode);
+    browse->setShortcut(QKeySequence("Ctrl+B"));
+    viewMenu->addSeparator();
+
+    // Zoom / navigation only make sense in the viewer, so their shortcuts are
+    // scoped to it (WidgetWithChildrenShortcut) and don't clash with the grid.
+    auto addViewerAction = [this, viewMenu](const QString& text, const QKeySequence& sc,
+                                            const std::function<void()>& fn) {
+        QAction* a = new QAction(text, this);
+        a->setShortcut(sc);
+        a->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+        connect(a, &QAction::triggered, this, fn);
+        ui->photoVidget->addAction(a);
+        viewMenu->addAction(a);
+    };
+    addViewerAction(tr("Zoom In"),   QKeySequence(Qt::Key_Plus),  [this]{ ui->photoVidget->zoomIn(); });
+    addViewerAction(tr("Zoom Out"),  QKeySequence(Qt::Key_Minus), [this]{ ui->photoVidget->zoomOut(); });
+    addViewerAction(tr("Fit to Window"), QKeySequence("Ctrl+0"),  [this]{ ui->photoVidget->resetZoom(); });
+    viewMenu->addSeparator();
+    addViewerAction(tr("Previous Image"), QKeySequence(Qt::Key_Left),  [this]{ stepImage(-1); });
+    addViewerAction(tr("Next Image"),     QKeySequence(Qt::Key_Right), [this]{ stepImage(1); });
+    addViewerAction(tr("Play Video"),     QKeySequence(Qt::Key_Space), [this]{ ui->photoVidget->playVideo(); });
+    viewMenu->addSeparator();
+
+    m_fullScreenAction = new QAction(tr("Full Screen"), this);
+    m_fullScreenAction->setCheckable(true);
+    m_fullScreenAction->setShortcut(QKeySequence(Qt::Key_F11));   // 'F' is handled in keyPressEvent too
+    connect(m_fullScreenAction, &QAction::triggered, this, &MainWindow::setFullScreenView);
+    viewMenu->addAction(m_fullScreenAction);
+    viewMenu->addSeparator();
+
+    for (QDockWidget* d : findChildren<QDockWidget*>())
+        viewMenu->addAction(d->toggleViewAction());   // Folders / Preview / Metadata
+
+    // ---- Help ----
+    QAction* shortcuts = new QAction(tr("Keyboard Shortcuts"), this);
+    shortcuts->setShortcut(QKeySequence("F1"));
+    connect(shortcuts, &QAction::triggered, this, &MainWindow::onShortcuts);
+    ui->menuHelp->insertAction(ui->actionAbout, shortcuts);
+    ui->menuHelp->insertSeparator(ui->actionAbout);
+
+    connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onAbout);
+    connect(ui->actionLicensing, &QAction::triggered, this, &MainWindow::onLicensing);
+    QAction* aboutQt = ui->menuHelp->addAction(tr("About Qt"));
+    connect(aboutQt, &QAction::triggered, qApp, &QApplication::aboutQt);
 }
 
 void MainWindow::showViewMode()
@@ -363,34 +432,9 @@ void MainWindow::wheelEvent(QWheelEvent *event)
     if (m_stack->currentWidget() != ui->photoVidget)
         return;   // wheel only steps through images in view mode
 
-    QPoint numDegrees = event->angleDelta() / 8;
-    QPoint numSteps = numDegrees / 15;
-    if (numSteps.y() != 0 && m_currentPath.size() != 0)
-    {
-        QDir workingDir = QFileInfo( m_currentPath ).absoluteDir();
-        QStringList images = workingDir.entryList(m_supportedFormats,QDir::Files);
-        if (images.empty())
-        {
-            return;
-        }
-        images.sort();
-        int in = images.indexOf(QFileInfo( m_currentPath ).fileName());
-        const int current_in = in;
-        in = in - numSteps.y();
-        if (in < 0)
-        {
-            in = 0;
-        }
-        else if (in >= images.size())
-        {
-            in = images.size()-1;
-        }
-
-        if (current_in != in)
-        {
-            SetImage(workingDir.absoluteFilePath(images[in]));
-        }
-    }
+    const QPoint numSteps = event->angleDelta() / (8 * 15);
+    if (numSteps.y() != 0)
+        stepImage(-numSteps.y());   // wheel up -> previous
 }
 
 void MainWindow::setFullScreenView(bool on)
@@ -403,6 +447,63 @@ void MainWindow::setFullScreenView(bool on)
         showFullScreen();
     else
         showNormal();
+    if (m_fullScreenAction && m_fullScreenAction->isChecked() != on)
+    {
+        QSignalBlocker block(m_fullScreenAction);
+        m_fullScreenAction->setChecked(on);
+    }
+}
+
+void MainWindow::stepImage(int delta)
+{
+    if (m_currentPath.isEmpty())
+        return;
+    QDir dir = QFileInfo(m_currentPath).absoluteDir();
+    QStringList images = dir.entryList(m_supportedFormats, QDir::Files, QDir::Name);
+    if (images.isEmpty())
+        return;
+    const int idx = images.indexOf(QFileInfo(m_currentPath).fileName());
+    const int next = qBound(0, idx + delta, images.size() - 1);
+    if (next != idx)
+        SetImage(dir.absoluteFilePath(images[next]));
+}
+
+void MainWindow::onAbout()
+{
+    QMessageBox::about(this, tr("About MobilePhotoViewer"),
+        tr("<h3>MobilePhotoViewer</h3>"
+           "<p>Viewer for phone photos and <b>motion photos</b> &mdash; Samsung / Google "
+           "JPEG and HEIF, with playback of the embedded video clip.</p>"));
+}
+
+void MainWindow::onLicensing()
+{
+    QMessageBox::about(this, tr("Licensing"),
+        tr("<p>Built with these third-party components:</p>"
+           "<ul>"
+           "<li>Qt 6 &mdash; LGPLv3</li>"
+           "<li>libheif &mdash; LGPLv3</li>"
+           "<li>libde265 &mdash; LGPLv3</li>"
+           "<li>tinyxml2 &mdash; zlib</li>"
+           "<li>TinyEXIF &mdash; BSD</li>"
+           "</ul>"));
+}
+
+void MainWindow::onShortcuts()
+{
+    QMessageBox::information(this, tr("Keyboard Shortcuts"),
+        tr("<table cellpadding='4'>"
+           "<tr><td><b>Ctrl+O</b></td><td>Open file</td></tr>"
+           "<tr><td><b>Ctrl+Shift+O</b></td><td>Open folder</td></tr>"
+           "<tr><td><b>Ctrl+B</b> / <b>Esc</b></td><td>Back to thumbnails</td></tr>"
+           "<tr><td><b>+</b> / <b>&minus;</b></td><td>Zoom in / out</td></tr>"
+           "<tr><td><b>Ctrl+0</b></td><td>Fit to window</td></tr>"
+           "<tr><td>drag</td><td>Pan while zoomed</td></tr>"
+           "<tr><td><b>&larr;</b> / <b>&rarr;</b> / wheel</td><td>Previous / next image</td></tr>"
+           "<tr><td><b>Space</b></td><td>Play video</td></tr>"
+           "<tr><td><b>F</b> / <b>F11</b></td><td>Full screen</td></tr>"
+           "<tr><td><b>Ctrl+Q</b></td><td>Quit</td></tr>"
+           "</table>"));
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event)

@@ -24,6 +24,7 @@ class QLabel;
 class QTreeWidget;
 class QModelIndex;
 class QImage;
+class QAction;
 class ThumbnailModel;
 
 class MainWindow : public QMainWindow
@@ -52,12 +53,17 @@ private slots:
     void onThumbActivated(const QModelIndex& index);
     void onOpenFile();
     void onOpenFolder();
+    void onAbout();
+    void onLicensing();
+    void onShortcuts();
 
 private:
     void setupBrowser();
+    void setupMenus();
     void showViewMode();
     void showBrowseMode();
     void setFullScreenView(bool on);
+    void stepImage(int delta);
     void updateSidePanels(const QString& path);
     QImage loadImage(const QString& path) const;
 
@@ -74,5 +80,6 @@ private:
     QFileSystemModel*   m_dirModel;
     QLabel*             m_preview;
     QTreeWidget*        m_metadata;
+    QAction*            m_fullScreenAction;
 };
 #endif // MAINWINDOW_H

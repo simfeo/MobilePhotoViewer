@@ -33,6 +33,11 @@ public:
     void SetPlayButtonVisible(bool state);
     void SetVideoManager(std::shared_ptr<QBuffer> videoBuff);
 
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
+    void playVideo();
+
 signals:
     void playVideoButtonClickedSignal();
 
@@ -54,7 +59,6 @@ private:
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
-    void keyPressEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;

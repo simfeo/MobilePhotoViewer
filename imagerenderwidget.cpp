@@ -197,15 +197,26 @@ void ImageRenderWidget::resizeEvent(QResizeEvent* event)
     positionPlayButton();
 }
 
-void ImageRenderWidget::keyPressEvent(QKeyEvent* event)
+void ImageRenderWidget::zoomIn()
 {
-    // Zoom the still with +/-; leave everything else (e.g. F) to the parent.
-    if (event->key() == Qt::Key_Plus || event->key() == Qt::Key_Equal)
-        setZoom(m_zoom * 1.25, rect().center());
-    else if (event->key() == Qt::Key_Minus || event->key() == Qt::Key_Underscore)
-        setZoom(m_zoom / 1.25, rect().center());
-    else
-        QWidget::keyPressEvent(event);
+    setZoom(m_zoom * 1.25, rect().center());
+}
+
+void ImageRenderWidget::zoomOut()
+{
+    setZoom(m_zoom / 1.25, rect().center());
+}
+
+void ImageRenderWidget::resetZoom()
+{
+    setZoom(1.0, rect().center());
+    unsetCursor();
+}
+
+void ImageRenderWidget::playVideo()
+{
+    if (m_ui->playButton->isVisible())   // only when a clip is loaded
+        on_playButton_clicked();
 }
 
 void ImageRenderWidget::mousePressEvent(QMouseEvent* event)
