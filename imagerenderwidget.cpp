@@ -22,6 +22,7 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     , m_zoom(1.0)
     , m_imgTopLeft(0, 0)
     , m_dragging(false)
+    , m_hasVideo(false)
 {
     m_ui->setupUi(this);
     setFocusPolicy(Qt::StrongFocus);
@@ -66,6 +67,7 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     m_stillImage.reset(new QPixmap(image));
     m_zoom = 1.0;            // every new image starts fit-to-window
     m_dragging = false;
+    m_hasVideo = false;
     unsetCursor();
     m_player->stop();
     m_videoWidget->hide();
@@ -84,6 +86,13 @@ void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
     QBuffer* btArray = new QBuffer(this);
     btArray->setData(videoBuff->data());
     m_player->setSourceDevice(btArray);
+    m_hasVideo = true;
+}
+
+void ImageRenderWidget::togglePlayButton()
+{
+    if (m_hasVideo && !m_videoWidget->isVisible())   // only meaningful before playback
+        m_ui->playButton->setVisible(!m_ui->playButton->isVisible());
 }
 
 // Rectangle the current image is drawn into: scaled to fit while keeping the
@@ -251,6 +260,12 @@ void ImageRenderWidget::mouseReleaseEvent(QMouseEvent* event)
         if (m_zoom <= 1.0)
             unsetCursor();
     }
+}
+
+void ImageRenderWidget::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton)
+        emit backRequested();   // double-click returns to the folder content
 }
 
 void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)

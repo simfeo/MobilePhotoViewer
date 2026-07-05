@@ -16,6 +16,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QFileInfoList>
 #include <QDir>
 
 #include <QStackedWidget>
@@ -137,6 +138,7 @@ void MainWindow::setupBrowser()
     connect(m_grid->selectionModel(), &QItemSelectionModel::currentChanged,
             this, &MainWindow::onThumbSelected);
     connect(m_grid, &QListView::doubleClicked, this, &MainWindow::onThumbActivated);
+    connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
 
     showBrowseMode();
 }
@@ -182,6 +184,7 @@ void MainWindow::setupMenus()
     addViewerAction(tr("Previous Image"), QKeySequence(Qt::Key_Left),  [this]{ stepImage(-1); });
     addViewerAction(tr("Next Image"),     QKeySequence(Qt::Key_Right), [this]{ stepImage(1); });
     addViewerAction(tr("Play Video"),     QKeySequence(Qt::Key_Space), [this]{ ui->photoVidget->playVideo(); });
+    addViewerAction(tr("Hide/Show Play Button"), QKeySequence(Qt::Key_H), [this]{ ui->photoVidget->togglePlayButton(); });
     viewMenu->addSeparator();
 
     m_fullScreenAction = new QAction(tr("Full Screen"), this);
@@ -239,27 +242,33 @@ void MainWindow::onFolderSelected(const QModelIndex& index)
     if (dir.isEmpty())
         return;
 
+    // Show the folder's content: sub-folders first, then supported images -- so
+    // the grid works as a file browser, not only a picture list.
     QDir d(dir);
-    QStringList names = d.entryList(m_supportedFormats, QDir::Files, QDir::Name);
-    QStringList paths;
-    paths.reserve(names.size());
-    for (const QString& n : names)
-        paths.append(d.absoluteFilePath(n));
+    QFileInfoList entries = d.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    entries += d.entryInfoList(m_supportedFormats, QDir::Files, QDir::Name);
 
-    m_thumbs->setFiles(paths);
+    m_thumbs->setEntries(entries);
     setWindowTitle(dir);
     showBrowseMode();
 }
 
 void MainWindow::onThumbSelected(const QModelIndex& index)
 {
-    updateSidePanels(m_thumbs->filePath(index));
+    if (!m_thumbs->isDir(index))
+        updateSidePanels(m_thumbs->filePath(index));
+    else
+        updateSidePanels(QString());
 }
 
 void MainWindow::onThumbActivated(const QModelIndex& index)
 {
     const QString path = m_thumbs->filePath(index);
-    if (!path.isEmpty())
+    if (path.isEmpty())
+        return;
+    if (m_thumbs->isDir(index))
+        OpenFolder(path);   // navigate into the sub-folder
+    else
         SetImage(path);
 }
 
@@ -501,6 +510,7 @@ void MainWindow::onShortcuts()
            "<tr><td>drag</td><td>Pan while zoomed</td></tr>"
            "<tr><td><b>&larr;</b> / <b>&rarr;</b> / wheel</td><td>Previous / next image</td></tr>"
            "<tr><td><b>Space</b></td><td>Play video</td></tr>"
+           "<tr><td><b>H</b></td><td>Hide / show play button</td></tr>"
            "<tr><td><b>F</b> / <b>F11</b></td><td>Full screen</td></tr>"
            "<tr><td><b>Ctrl+Q</b></td><td>Quit</td></tr>"
            "</table>"));

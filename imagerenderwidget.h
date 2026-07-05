@@ -37,9 +37,11 @@ public:
     void zoomOut();
     void resetZoom();
     void playVideo();
+    void togglePlayButton();
 
 signals:
     void playVideoButtonClickedSignal();
+    void backRequested();          // double-click in the viewer -> back to browsing
 
 private slots:
     void on_playButton_clicked();
@@ -62,6 +64,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private:
     Ui::ImageRenderWidget*          m_ui;
@@ -76,6 +79,7 @@ private:
     QPointF m_imgTopLeft;    // top-left of the displayed still, in widget coords
     bool    m_dragging;
     QPoint  m_dragLast;
+    bool    m_hasVideo;      // a motion-photo clip is loaded
 };
 
 #endif // IMAGERENDERWIDGET_H

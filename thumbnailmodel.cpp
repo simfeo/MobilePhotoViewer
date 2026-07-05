@@ -2,8 +2,9 @@
 
 #include <QThreadPool>
 #include <QImageReader>
-#include <QIcon>
 #include <QFileInfo>
+#include <QFileInfoList>
+#include <QFileIconProvider>
 #include <QPainter>
 
 ThumbnailModel::ThumbnailModel(QObject* parent)
@@ -11,6 +12,9 @@ ThumbnailModel::ThumbnailModel(QObject* parent)
     , m_pool(new QThreadPool(this))
 {
     m_pool->setMaxThreadCount(4);
+
+    QFileIconProvider ip;
+    m_folderIcon = ip.icon(QFileIconProvider::Folder);
 
     // Neutral placeholder shown until the real thumbnail has been generated.
     m_placeholder = QPixmap(kThumb, kThumb);
@@ -20,12 +24,18 @@ ThumbnailModel::ThumbnailModel(QObject* parent)
     p.drawRect(0, 0, kThumb - 1, kThumb - 1);
 }
 
-void ThumbnailModel::setFiles(const QStringList& files)
+void ThumbnailModel::setEntries(const QList<QFileInfo>& entries)
 {
     beginResetModel();
-    m_files = files;
+    m_files.clear();
+    m_dirs.clear();
     m_cache.clear();
     m_pending.clear();
+    for (const QFileInfo& fi : entries)
+    {
+        m_files.append(fi.absoluteFilePath());
+        m_dirs.append(fi.isDir());
+    }
     endResetModel();
 }
 
@@ -34,6 +44,11 @@ QString ThumbnailModel::filePath(const QModelIndex& index) const
     if (index.isValid() && index.row() < m_files.size())
         return m_files.at(index.row());
     return QString();
+}
+
+bool ThumbnailModel::isDir(const QModelIndex& index) const
+{
+    return index.isValid() && index.row() < m_dirs.size() && m_dirs.at(index.row());
 }
 
 int ThumbnailModel::rowCount(const QModelIndex& parent) const
@@ -47,6 +62,7 @@ QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
         return QVariant();
 
     const QString path = m_files.at(index.row());
+    const bool dir = m_dirs.at(index.row());
 
     switch (role)
     {
@@ -56,6 +72,8 @@ QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
         return path;
     case Qt::DecorationRole:
     {
+        if (dir)
+            return m_folderIcon;
         auto it = m_cache.constFind(path);
         if (it != m_cache.constEnd())
             return QIcon(it.value());
