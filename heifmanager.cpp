@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <fstream>  // std::ifstream
+#include <vector>
 
 //#include <heifreader.h>
 //#include <Heif.h>
@@ -155,6 +156,19 @@ void HeifManager::manageHeif()
             m_memoryVideo.reset(new QBuffer());
             m_memoryVideo->setData(reinterpret_cast<char *>(videoData.data()), videoData.size());
         }
+    }
+
+    // Newer HEIF motion photos keep the clip in a top-level 'mpvd' box (handled by
+    // HeifReader above) instead of the Samsung 'sefd' box; hand its MP4 payload over.
+    if (!m_memoryVideo && heif.getMpvdVideoSize() != 0)
+    {
+        m_imageEXIF.MicroVideo.HasMicroVideo = 1;
+        std::vector<uint8_t> videoData(heif.getMpvdVideoSize());
+        istr.reset(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
+        istr->seekg(heif.getMpvdVideoOffset());
+        istr->read(reinterpret_cast<char*>(videoData.data()), videoData.size());
+        m_memoryVideo.reset(new QBuffer());
+        m_memoryVideo->setData(reinterpret_cast<char*>(videoData.data()), videoData.size());
     }
 }
 

@@ -31,9 +31,15 @@ public:
     SefdBox getSefdBox();
     size_t  getSefdOffset();
 
+    // Newer HEIF motion photos store the clip in a top-level 'mpvd' box whose
+    // payload is a standalone MP4. These return its file offset and size (0 if none).
+    size_t  getMpvdVideoOffset() const;
+    size_t  getMpvdVideoSize() const;
+
 private:
     HeifHelpers::OperationResult skipBox(std::ifstream& fstream);
     HeifHelpers::OperationResult handleSefd(std::ifstream& fstream);
+    HeifHelpers::OperationResult handleMpvd(std::ifstream& fstream);
     HeifHelpers::OperationResult readBox(std::ifstream& fstream, std::vector<uint8_t>& bitstream);
 
     enum class ReaderState
@@ -47,6 +53,8 @@ private:
     size_t          m_streamLength;
     size_t          m_sefdOffset;
     SefdBox         m_sefd;
+    size_t          m_mpvdOffset;
+    size_t          m_mpvdSize;
 };
 
 #endif // HEIFREADER_H
