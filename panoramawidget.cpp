@@ -156,10 +156,11 @@ void PanoramaWidget::mouseMoveEvent(QMouseEvent* e)
     {
         const QPoint d = e->pos() - m_lastPos;
         m_lastPos = e->pos();
-        // Slower rotation when zoomed in (small fov).
+        // Slower rotation when zoomed in (small fov). Inverted so the scene
+        // follows the cursor ("grab and pull") on both axes.
         const float k = m_fov / 75.0f;
-        m_yaw   += d.x() * 0.25f * k;
-        m_pitch += d.y() * 0.25f * k;
+        m_yaw   -= d.x() * 0.25f * k;
+        m_pitch -= d.y() * 0.25f * k;
         m_pitch = std::max(-89.0f, std::min(89.0f, m_pitch));
         update();
     }

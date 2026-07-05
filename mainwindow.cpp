@@ -538,9 +538,14 @@ void MainWindow::dropEvent(QDropEvent *event)
     {
         const QString path = mimeData->urls().front().toLocalFile();
         if (QFileInfo(path).isDir())
+        {
             OpenFolder(path);
+        }
         else
+        {
+            OpenFolder(QFileInfo(path).absolutePath());   // browse folder follows the photo
             SetImage(path);
+        }
     }
 }
 
