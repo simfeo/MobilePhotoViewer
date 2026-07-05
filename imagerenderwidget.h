@@ -44,12 +44,20 @@ private:
     void startVideoThread();
     void startAudioThread();
 
-    QRect currentImageRect() const;
-    void updateVideoGeometry();
+    QRect  currentImageRect() const;   // fit-to-window rect (also used for the video)
+    QRectF displayRect() const;        // zoomed/panned rect for the still image
+    void   updateVideoGeometry();
+    void   setZoom(double zoom, const QPointF& anchor);
+    void   clampOffset();
+    void   positionPlayButton();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
     Ui::ImageRenderWidget*          m_ui;
@@ -60,6 +68,10 @@ private:
     QMediaPlayer* m_player;
     QAudioOutput* m_audioOutput;
 
+    double  m_zoom;          // 1.0 == fit to window
+    QPointF m_imgTopLeft;    // top-left of the displayed still, in widget coords
+    bool    m_dragging;
+    QPoint  m_dragLast;
 };
 
 #endif // IMAGERENDERWIDGET_H
