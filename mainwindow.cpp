@@ -144,6 +144,7 @@ void MainWindow::setupBrowser()
             this, &MainWindow::onThumbSelected);
     connect(m_grid, &QListView::doubleClicked, this, &MainWindow::onThumbActivated);
     connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
+    connect(ui->photoVidget, &ImageRenderWidget::panoramaRequested, this, &MainWindow::showPanorama);
 
     showBrowseMode();
 }
@@ -385,8 +386,11 @@ void MainWindow::updateSidePanels(const QString& path)
 // --------------------------------------------------------------------------
 // Panorama / photosphere
 // --------------------------------------------------------------------------
-bool MainWindow::tryOpenPanorama(const QString& path)
+// Detect an equirectangular panorama and remember its geometry (used later by
+// showPanorama() when the user clicks the 360 button).
+bool MainWindow::detectPanorama(const QString& path)
 {
+    m_isPano = false;
     const QString lower = path.toLower();
     if (!(lower.endsWith("jpg") || lower.endsWith("jpeg")))
         return false;
@@ -399,21 +403,31 @@ bool MainWindow::tryOpenPanorama(const QString& path)
 
     TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(head.constData()), head.size());
     if (!exif.GPano.isEquirectangular())
-        return false;   // not an equirectangular pano -> show it flat
+        return false;
 
-    int fullW = static_cast<int>(exif.GPano.FullPanoWidthPixels);
-    int fullH = static_cast<int>(exif.GPano.FullPanoHeightPixels);
-    int cropW = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
-    int cropH = static_cast<int>(exif.GPano.CroppedAreaImageHeightPixels);
-    int cropL = static_cast<int>(exif.GPano.CroppedAreaLeftPixels);
-    int cropT = static_cast<int>(exif.GPano.CroppedAreaTopPixels);
+    m_isPano     = true;
+    m_panoFullW  = static_cast<int>(exif.GPano.FullPanoWidthPixels);
+    m_panoFullH  = static_cast<int>(exif.GPano.FullPanoHeightPixels);
+    m_panoCropW  = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
+    m_panoCropH  = static_cast<int>(exif.GPano.CroppedAreaImageHeightPixels);
+    m_panoCropL  = static_cast<int>(exif.GPano.CroppedAreaLeftPixels);
+    m_panoCropT  = static_cast<int>(exif.GPano.CroppedAreaTopPixels);
+    return true;
+}
 
-    QImageReader r(path);
+void MainWindow::showPanorama()
+{
+    if (!m_isPano)
+        return;
+
+    QImageReader r(m_currentPath);
     r.setAutoTransform(true);
     QImage img = r.read();
     if (img.isNull())
-        return false;
+        return;
 
+    int fullW = m_panoFullW, fullH = m_panoFullH;
+    int cropW = m_panoCropW, cropH = m_panoCropH, cropL = m_panoCropL, cropT = m_panoCropT;
     if (fullW <= 0 || fullH <= 0) { fullW = img.width(); fullH = img.height(); cropW = fullW; cropH = fullH; cropL = cropT = 0; }
     if (cropW <= 0) cropW = img.width();
     if (cropH <= 0) cropH = img.height();
@@ -443,7 +457,6 @@ bool MainWindow::tryOpenPanorama(const QString& path)
     m_pano->setPanorama(canvas.convertToFormat(QImage::Format_RGBA8888));
     m_stack->setCurrentWidget(m_pano);
     m_pano->setFocus();
-    return true;
 }
 
 // --------------------------------------------------------------------------
@@ -455,14 +468,8 @@ void MainWindow::SetImage(const QString& imgPath)
     if (m_saveVideoAction)
         m_saveVideoAction->setEnabled(false);
 
-    // Equirectangular photospheres/panoramas are shown in the spherical viewer.
-    if (tryOpenPanorama(imgPath))
-    {
-        setWindowTitle(imgPath);
-        return;
-    }
-
     ui->photoVidget->SetPlayButtonVisible(false);
+    ui->photoVidget->SetPanoramaButtonVisible(false);
     QImageReader imgReader(imgPath);
     imgReader.setAutoTransform(true);
     QImage qimg = imgReader.read();
@@ -492,6 +499,9 @@ void MainWindow::SetImage(const QString& imgPath)
         ui->photoVidget->SetVideoManager(m_imageManager->getVideoMemory());
     if (m_saveVideoAction)
         m_saveVideoAction->setEnabled(hasVideo);
+
+    // Equirectangular panoramas open flat, with a 360 button to enter the sphere.
+    ui->photoVidget->SetPanoramaButtonVisible(detectPanorama(imgPath));
 
     setWindowTitle(imgPath);
     showViewMode();

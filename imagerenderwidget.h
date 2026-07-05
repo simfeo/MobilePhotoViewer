@@ -14,6 +14,7 @@ namespace Ui {
 }
 
 class VideoDecoder;
+class QPushButton;
 
 class QImage;
 namespace std
@@ -31,6 +32,7 @@ public:
 
     void SetPixmap(const QPixmap& image);
     void SetPlayButtonVisible(bool state);
+    void SetPanoramaButtonVisible(bool state);
     void SetVideoManager(std::shared_ptr<QBuffer> videoBuff);
 
     void zoomIn();
@@ -42,6 +44,7 @@ public:
 signals:
     void playVideoButtonClickedSignal();
     void backRequested();          // double-click in the viewer -> back to browsing
+    void panoramaRequested();      // the "360" overlay button was clicked
 
 private slots:
     void on_playButton_clicked();
@@ -80,6 +83,7 @@ private:
     bool    m_dragging;
     QPoint  m_dragLast;
     bool    m_hasVideo;      // a motion-photo clip is loaded
+    QPushButton* m_panoButton;
 };
 
 #endif // IMAGERENDERWIDGET_H

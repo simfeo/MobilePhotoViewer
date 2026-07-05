@@ -11,6 +11,7 @@
 #include <QBuffer>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QPushButton>
 
 #include <QDebug>
 
@@ -36,6 +37,19 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
         "border-radius:28px;font-size:22px;padding-left:4px;}"
         "QPushButton:hover{background:rgba(0,0,0,190);}");
     m_ui->playButton->hide();
+
+    // Panorama overlay button (shown for equirectangular photos): same look as the
+    // play button, "360". Clicking it asks the parent to open the sphere viewer.
+    m_panoButton = new QPushButton(this);
+    m_panoButton->setFixedSize(60, 60);
+    m_panoButton->setText("360");
+    m_panoButton->setCursor(Qt::PointingHandCursor);
+    m_panoButton->setStyleSheet(
+        "QPushButton{background:rgba(0,0,0,140);color:white;border:none;"
+        "border-radius:30px;font-size:16px;font-weight:bold;}"
+        "QPushButton:hover{background:rgba(0,0,0,190);}");
+    m_panoButton->hide();
+    connect(m_panoButton, &QPushButton::clicked, this, [this]{ emit panoramaRequested(); });
 
 
     m_player = new QMediaPlayer(this);
@@ -72,6 +86,7 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     m_player->stop();
     m_videoWidget->hide();
     m_ui->playButton->hide();
+    m_panoButton->hide();
     update();
 }
 
@@ -175,6 +190,15 @@ void ImageRenderWidget::positionPlayButton()
     const int w = m_ui->playButton->width();
     const int h = m_ui->playButton->height();
     m_ui->playButton->move((width() - w) / 2, height() - h - 24);
+    // The panorama button uses the same spot (a photo is a motion clip or a
+    // panorama, not both), so only one is ever visible at a time.
+    m_panoButton->move((width() - m_panoButton->width()) / 2, height() - m_panoButton->height() - 24);
+}
+
+void ImageRenderWidget::SetPanoramaButtonVisible(bool state)
+{
+    positionPlayButton();
+    m_panoButton->setVisible(state);
 }
 
 void ImageRenderWidget::paintEvent(QPaintEvent* event)

@@ -62,7 +62,8 @@ private slots:
 private:
     void setupBrowser();
     void setupMenus();
-    bool tryOpenPanorama(const QString& path);   // returns true if shown as a sphere
+    bool detectPanorama(const QString& path);   // fills m_pano* if equirectangular
+    void showPanorama();                        // build the sphere and switch to it
     void showViewMode();
     void showBrowseMode();
     void setFullScreenView(bool on);
@@ -86,5 +87,10 @@ private:
     QAction*            m_fullScreenAction;
     QAction*            m_saveVideoAction;
     PanoramaWidget*     m_pano;
+
+    // current image's panorama metadata (valid when m_isPano)
+    bool m_isPano = false;
+    int  m_panoFullW = 0, m_panoFullH = 0;
+    int  m_panoCropW = 0, m_panoCropH = 0, m_panoCropL = 0, m_panoCropT = 0;
 };
 #endif // MAINWINDOW_H
