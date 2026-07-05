@@ -2,6 +2,7 @@
 
 #include <QStyleFactory>
 #include <QApplication>
+#include <QFileInfo>
 
 int main(int argc, char* argv[])
 {
@@ -11,7 +12,11 @@ int main(int argc, char* argv[])
     w.show();
     if (QCoreApplication::arguments().size() > 1)
     {
-        w.SetImage(QCoreApplication::arguments()[1]);
+        const QString arg = QCoreApplication::arguments()[1];
+        if (QFileInfo(arg).isDir())
+            w.OpenFolder(arg);
+        else
+            w.SetImage(arg);
     }
     return a.exec();
 }

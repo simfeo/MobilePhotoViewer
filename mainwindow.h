@@ -16,6 +16,15 @@ class QDragLeaveEvent;
 class QDragMoveEvent;
 class QWheelEvent;
 class QKeyEvent;
+class QStackedWidget;
+class QListView;
+class QTreeView;
+class QFileSystemModel;
+class QLabel;
+class QTreeWidget;
+class QModelIndex;
+class QImage;
+class ThumbnailModel;
 
 class MainWindow : public QMainWindow
 {
@@ -26,6 +35,7 @@ public:
     ~MainWindow();
 
     void SetImage(const QString& imgPath);
+    void OpenFolder(const QString& dirPath);   // switch to browse mode on a folder
 
     // QWidget interface
 protected:
@@ -36,10 +46,33 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
 
+private slots:
+    void onFolderSelected(const QModelIndex& index);
+    void onThumbSelected(const QModelIndex& index);
+    void onThumbActivated(const QModelIndex& index);
+    void onOpenFile();
+    void onOpenFolder();
+
 private:
+    void setupBrowser();
+    void showViewMode();
+    void showBrowseMode();
+    void setFullScreenView(bool on);
+    void updateSidePanels(const QString& path);
+    QImage loadImage(const QString& path) const;
+
     Ui::MainWindow*     ui;
     QString             m_currentPath;
     QList<QString>      m_supportedFormats;
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
+
+    // browsing mode
+    QStackedWidget*     m_stack;
+    QListView*          m_grid;
+    ThumbnailModel*     m_thumbs;
+    QTreeView*          m_folderTree;
+    QFileSystemModel*   m_dirModel;
+    QLabel*             m_preview;
+    QTreeWidget*        m_metadata;
 };
 #endif // MAINWINDOW_H

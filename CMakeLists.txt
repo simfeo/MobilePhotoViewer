@@ -107,6 +107,7 @@ qt_add_executable(MobilePhotoViewer WIN32
     videowidget.cpp       videowidget.h       videowidget.ui
     heifmanager.cpp       heifmanager.h
     jpegmanager.cpp       jpegmanager.h
+    thumbnailmodel.cpp    thumbnailmodel.h
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
