@@ -5,7 +5,7 @@
 #include <memory>
 
 #include <Tools/imagewithvideobase.h>
-#include <tinyexif/TinyEXIF.h>
+#include <TinyEXIF.h>
 
 namespace JpegUtils
 {

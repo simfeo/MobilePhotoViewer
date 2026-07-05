@@ -4,3 +4,9 @@
 [submodule "third_party/libheif"]
 	path = third_party/libheif
 	url = https://github.com/strukturag/libheif.git
+[submodule "third_party/tinyxml2"]
+	path = third_party/tinyxml2
+	url = https://github.com/leethomason/tinyxml2.git
+[submodule "third_party/TinyEXIF"]
+	path = third_party/TinyEXIF
+	url = https://github.com/simfeo/TinyEXIF.git

@@ -111,12 +111,16 @@ qt_add_executable(MobilePhotoViewer WIN32
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
     Tools/ramfile.cpp            Tools/ramfile.h
-    tinyexif/TinyEXIF.cpp        tinyexif/TinyEXIF.h
-    tinyexif/tinyxml2.cpp        tinyexif/tinyxml2.h
+    # EXIF/XMP parsing (TinyEXIF fork with motion-photo support) + its tinyxml2
+    # dependency, compiled straight in from the third_party submodules.
+    third_party/TinyEXIF/TinyEXIF.cpp   third_party/TinyEXIF/TinyEXIF.h
+    third_party/tinyxml2/tinyxml2.cpp   third_party/tinyxml2/tinyxml2.h
 )
 
 target_include_directories(MobilePhotoViewer PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"                                # <jpegmanager.h>, <Tools/...>
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/TinyEXIF"          # <TinyEXIF.h>
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyxml2"          # <tinyxml2.h>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"           # <libheif/heif.h>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif/libheif"   # <libheif/api_structs.h> (private)
     "${CMAKE_CURRENT_BINARY_DIR}/third_party/libheif"           # generated heif_version.h
