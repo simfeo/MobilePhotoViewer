@@ -16,6 +16,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QKeyEvent>
 
 #include <QDebug>
 
@@ -75,6 +76,7 @@ void MainWindow::SetImage(const QString& imgPath)
         ui->photoVidget->SetVideoManager(m_imageManager->getVideoMemory());
     }
     setWindowTitle(imgPath);
+    ui->photoVidget->setFocus();   // so +/- zoom keys go to the viewer
     repaint();
 }
 
@@ -137,5 +139,21 @@ void MainWindow::wheelEvent(QWheelEvent *event)
         {
             SetImage(workingDir.absoluteFilePath(images[in]));
         }
+    }
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_F)
+    {
+        isFullScreen() ? showNormal() : showFullScreen();
+    }
+    else if (event->key() == Qt::Key_Escape && isFullScreen())
+    {
+        showNormal();
+    }
+    else
+    {
+        QMainWindow::keyPressEvent(event);
     }
 }

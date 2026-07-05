@@ -15,6 +15,7 @@ class QDragEnterEvent;
 class QDragLeaveEvent;
 class QDragMoveEvent;
 class QWheelEvent;
+class QKeyEvent;
 
 class MainWindow : public QMainWindow
 {
@@ -33,6 +34,7 @@ protected:
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dragLeaveEvent(QDragLeaveEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     Ui::MainWindow*     ui;
