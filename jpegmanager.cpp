@@ -30,12 +30,21 @@ void JpegManager::manageJpeg()
                  << "Image Resolution " << m_imageEXIF.ImageWidth << "x" << m_imageEXIF.ImageHeight << " pixels\n" \
                  << "Camera Model " << m_imageEXIF.Make.c_str() << " - " << m_imageEXIF.Model.c_str() << "\n" \
                  << "Focal Length " << m_imageEXIF.FocalLength << " mm";
-        if (m_imageEXIF.MicroVideo.HasMicroVideo)
+        // The video length (MicroVideoOffset, measured from the end of the file)
+        // must fit inside the file. Some files carry the MotionPhoto metadata but
+        // no actual clip (stripped) -- guarding here avoids a size_t underflow and
+        // an out-of-bounds read.
+        const uint64_t vlen = m_imageEXIF.MicroVideo.MicroVideoOffset;
+        if (m_imageEXIF.MicroVideo.HasMicroVideo && vlen > 8 && vlen <= data.size())
         {
-            qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;
-            size_t offset = data.size() - m_imageEXIF.MicroVideo.MicroVideoOffset;
-            m_memoryVideo.reset(new QBuffer());
-            m_memoryVideo->setData(reinterpret_cast<char *>(data.data() + offset), data.size() - offset);
+            const size_t offset = data.size() - static_cast<size_t>(vlen);
+            if (std::memcmp(&data[offset + 4], "ftyp", 4) == 0)   // real ISO-BMFF clip
+            {
+                qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;
+                m_memoryVideo.reset(new QBuffer());
+                m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + offset),
+                                       static_cast<int>(data.size() - offset));
+            }
         }
     }
 
