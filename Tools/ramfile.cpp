@@ -15,8 +15,10 @@ namespace Utils
         , m_currentPos(0)
     {
         m_bufferVec.resize(len);
-        memcpy_s((void*)(&m_bufferVec[0]), len, buf, len);
-        m_buffer = &m_bufferVec[0];
+        if (len > 0 && buf != nullptr) {
+            std::copy(buf, buf + len, m_bufferVec.begin());
+            m_buffer = &m_bufferVec[0];
+        }
     }
 
     int RamFile::FileStreamRead(uint8_t* buf, int buf_size)

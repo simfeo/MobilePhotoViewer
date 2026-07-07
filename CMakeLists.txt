@@ -136,20 +136,20 @@ target_link_libraries(MobilePhotoViewer PRIVATE
     heif
 )
 
-# --------------------------------------------------------------------------
-# Deployment: put every DLL the exe needs next to it so it runs in place.
-# --------------------------------------------------------------------------
-
-# 1) Dependency DLLs (heif.dll, libde265.dll, and anything they pull in).
-add_custom_command(TARGET MobilePhotoViewer POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_RUNTIME_DLLS:MobilePhotoViewer> $<TARGET_FILE_DIR:MobilePhotoViewer>
-    COMMAND_EXPAND_LISTS
-    VERBATIM
-)
-
 # 2) Qt runtime (Qt6*.dll, platform/multimedia plugins, FFmpeg DLLs) via windeployqt.
 if(WIN32)
+    # --------------------------------------------------------------------------
+    # Deployment: put every DLL the exe needs next to it so it runs in place.
+    # --------------------------------------------------------------------------
+
+    # 1) Dependency DLLs (heif.dll, libde265.dll, and anything they pull in).
+    add_custom_command(TARGET MobilePhotoViewer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:MobilePhotoViewer> $<TARGET_FILE_DIR:MobilePhotoViewer>
+        COMMAND_EXPAND_LISTS
+        VERBATIM
+    )
+
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${Qt6_DIR}/../../../bin")
     if(WINDEPLOYQT_EXECUTABLE)
         add_custom_command(TARGET MobilePhotoViewer POST_BUILD
