@@ -118,7 +118,8 @@ qt_add_executable(MobilePhotoViewer WIN32
     third_party/TinyEXIF/TinyEXIF.cpp   third_party/TinyEXIF/TinyEXIF.h
     third_party/tinyxml2/tinyxml2.cpp   third_party/tinyxml2/tinyxml2.h
     resources/appicon.qrc               # window icon (Qt resource)
-    $<$<BOOL:${WIN32}>:resources/app.rc> # taskbar/exe icon (Windows)
+    $<$<BOOL:${WIN32}>:resources/app.rc>
+    explorerselectiondelegate.h explorerselectiondelegate.cpp # taskbar/exe icon (Windows)
 )
 
 target_include_directories(MobilePhotoViewer PRIVATE

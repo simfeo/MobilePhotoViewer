@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "explorerselectiondelegate.h"
 #include "ui_mainwindow.h"
 #include <QLabel>
 #include <QImageReader>
@@ -58,6 +59,7 @@ MainWindow::MainWindow(QWidget* parent)
     , m_pano(nullptr)
 {
     ui->setupUi(this);
+
     setAcceptDrops(true);
     for (auto& i : QImageReader::supportedImageFormats())
     {
@@ -86,6 +88,7 @@ void MainWindow::setupBrowser()
     m_thumbs = new ThumbnailModel(this);
     m_grid = new QListView(m_stack);
     m_grid->setModel(m_thumbs);
+    m_grid->setItemDelegate(new ExplorerSelectionDelegate(m_grid));
     m_grid->setViewMode(QListView::IconMode);
     m_grid->setIconSize(QSize(128, 128));
     m_grid->setGridSize(QSize(150, 150));
@@ -109,6 +112,7 @@ void MainWindow::setupBrowser()
     m_dirModel->setRootPath("");
     m_folderTree = new QTreeView;
     m_folderTree->setModel(m_dirModel);
+    m_folderTree->setItemDelegate(new ExplorerSelectionDelegate(m_folderTree));
     m_folderTree->setHeaderHidden(true);
     for (int c = 1; c < m_dirModel->columnCount(); ++c)
         m_folderTree->setColumnHidden(c, true);
