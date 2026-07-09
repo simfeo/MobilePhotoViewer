@@ -19,6 +19,8 @@
 
 #include <QStackedWidget>
 #include <QDockWidget>
+#include <QToolBar>
+#include <QVBoxLayout>
 #include <QFileDialog>
 #include <QMenuBar>
 #include <QMenu>
@@ -75,7 +77,16 @@ void MainWindow::setupBrowser()
     m_stack->addWidget(ui->photoVidget);           // index 1
     m_pano = new PanoramaWidget(m_stack);
     m_stack->addWidget(m_pano);                    // index 2 (photospheres)
-    setCentralWidget(m_stack);
+
+    // Navigation + sort toolbar sits directly above the content pane (not across
+    // the whole window over the docks), like ACDSee's location/sort bar.
+    QWidget* central = new QWidget(this);
+    QVBoxLayout* centralLayout = new QVBoxLayout(central);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+    centralLayout->addWidget(m_browser->toolBar());
+    centralLayout->addWidget(m_stack);
+    setCentralWidget(central);
 
     // Folders dock (left, top)
     QDockWidget* foldersDock = new QDockWidget(tr("Folders"), this);
@@ -169,6 +180,7 @@ void MainWindow::setupMenus()
     viewMenu->addAction(m_fullScreenAction);
     viewMenu->addSeparator();
 
+    viewMenu->addAction(m_browser->toolBar()->toggleViewAction());   // Navigation toolbar
     for (QDockWidget* d : findChildren<QDockWidget*>())
         viewMenu->addAction(d->toggleViewAction());   // Folders / Preview / Metadata
 
@@ -415,8 +427,9 @@ void MainWindow::wheelEvent(QWheelEvent *event)
 
 void MainWindow::setFullScreenView(bool on)
 {
-    // Immersive full screen: drop the menu bar and the browse docks.
+    // Immersive full screen: drop the menu bar, the toolbar and the browse docks.
     menuBar()->setVisible(!on);
+    m_browser->toolBar()->setVisible(!on);
     for (QDockWidget* d : findChildren<QDockWidget*>())
         d->setVisible(!on);
     if (on)
