@@ -30,7 +30,10 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     m_grid->setUniformItemSizes(true);
     m_grid->setMovement(QListView::Static);
     m_grid->setSpacing(6);
-    m_grid->setWordWrap(true);
+    // Single-line, elided captions ("long_name_1234...") keep every row the same
+    // height so names line up in a clean grid (Explorer / ACDSee style).
+    m_grid->setWordWrap(false);
+    m_grid->setTextElideMode(Qt::ElideRight);
 
     // Explorer-style selection: Ctrl/Shift extend, and a rubber-band rectangle
     // selects a range by mouse.

@@ -153,7 +153,18 @@ void ThumbnailModel::onThumbnailReady(const QString& path, const QImage& image)
 {
     m_pending.remove(path);
     if (!image.isNull())
-        m_cache.insert(path, QPixmap::fromImage(image));
+    {
+        // Centre the (aspect-scaled) thumbnail on a fixed square canvas so every
+        // item's decoration is the same size. Otherwise Qt places the caption
+        // right under the actual pixmap, leaving names misaligned row to row.
+        QPixmap canvas(kThumb, kThumb);
+        canvas.fill(Qt::transparent);
+        const QPixmap thumb = QPixmap::fromImage(image);
+        QPainter p(&canvas);
+        p.drawPixmap((kThumb - thumb.width()) / 2, (kThumb - thumb.height()) / 2, thumb);
+        p.end();
+        m_cache.insert(path, canvas);
+    }
 
     const int row = m_files.indexOf(path);
     if (row >= 0)
