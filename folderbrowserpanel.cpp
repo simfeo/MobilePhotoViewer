@@ -28,6 +28,7 @@
 #include <QPixmap>
 #include <QIcon>
 #include <QPolygonF>
+#include <QPen>
 #include <QPalette>
 #include <QApplication>
 #include <QClipboard>
@@ -62,6 +63,25 @@ QIcon makeArrowIcon(Qt::ArrowType dir, const QColor& color, int px = 18)
     default: break;
     }
     p.drawPolygon(tri);
+    return QIcon(pm);
+}
+
+// A "+" or "-" glyph in the toolbar's text colour, for the zoom buttons.
+QIcon makeZoomIcon(bool plus, const QColor& color, int px = 18)
+{
+    QPixmap pm(px, px);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing);
+    QPen pen(color);
+    pen.setWidthF(px * 0.12);
+    pen.setCapStyle(Qt::RoundCap);
+    p.setPen(pen);
+
+    const qreal m = px * 0.26;
+    p.drawLine(QPointF(m, px / 2.0), QPointF(px - m, px / 2.0));   // horizontal bar
+    if (plus)
+        p.drawLine(QPointF(px / 2.0, m), QPointF(px / 2.0, px - m));   // vertical bar
     return QIcon(pm);
 }
 
@@ -276,6 +296,13 @@ void FolderBrowserPanel::buildToolBar()
     m_location = new LocationBar;
     connect(m_location, &LocationBar::navigate, this, &FolderBrowserPanel::openFolder);
     m_toolBar->addWidget(m_location);
+
+    // Thumbnail zoom buttons (same action as Ctrl+wheel / pinch / +- keys).
+    m_toolBar->addSeparator();
+    QAction* zoomOut = m_toolBar->addAction(makeZoomIcon(false, fg), tr("Zoom Out"));
+    connect(zoomOut, &QAction::triggered, this, [this] { zoomThumbnails(-1); });
+    QAction* zoomIn = m_toolBar->addAction(makeZoomIcon(true, fg), tr("Zoom In"));
+    connect(zoomIn, &QAction::triggered, this, [this] { zoomThumbnails(+1); });
 
     // Sort menu: an exclusive key, plus an exclusive ascending/descending toggle.
     QToolButton* sortBtn = new QToolButton;
