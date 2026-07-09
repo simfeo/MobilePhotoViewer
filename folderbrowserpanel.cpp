@@ -9,6 +9,10 @@
 #include <QImageReader>
 #include <QFileInfoList>
 #include <QDir>
+#include <QEvent>
+#include <QWheelEvent>
+#include <QNativeGestureEvent>
+#include <QShortcut>
 
 FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     : QObject(parent)
@@ -24,8 +28,6 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     m_grid->setModel(m_thumbs);
     m_grid->setItemDelegate(new ExplorerSelectionDelegate(m_grid));
     m_grid->setViewMode(QListView::IconMode);
-    m_grid->setIconSize(QSize(128, 128));
-    m_grid->setGridSize(QSize(150, 150));
     m_grid->setResizeMode(QListView::Adjust);
     m_grid->setUniformItemSizes(true);
     m_grid->setMovement(QListView::Static);
@@ -62,6 +64,20 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     connect(m_grid->selectionModel(), &QItemSelectionModel::currentChanged,
             this, &FolderBrowserPanel::onThumbSelected);
     connect(m_grid, &QListView::doubleClicked, this, &FolderBrowserPanel::onThumbActivated);
+
+    // Thumbnail zoom: Ctrl+wheel / trackpad pinch (via the event filter), and the
+    // +/- keys while the grid is focused.
+    applyThumbSize();
+    m_grid->viewport()->installEventFilter(this);
+
+    const auto addZoomKey = [this](QKeySequence seq, int steps) {
+        QShortcut* sc = new QShortcut(seq, m_grid);
+        sc->setContext(Qt::WidgetShortcut);
+        connect(sc, &QShortcut::activated, this, [this, steps] { zoomThumbnails(steps); });
+    };
+    addZoomKey(QKeySequence(Qt::Key_Plus),  +1);
+    addZoomKey(QKeySequence(Qt::Key_Equal), +1);   // '+' key without Shift
+    addZoomKey(QKeySequence(Qt::Key_Minus), -1);
 }
 
 QWidget* FolderBrowserPanel::folderTreeWidget() const
@@ -72,6 +88,52 @@ QWidget* FolderBrowserPanel::folderTreeWidget() const
 QWidget* FolderBrowserPanel::gridWidget() const
 {
     return m_grid;
+}
+
+void FolderBrowserPanel::applyThumbSize()
+{
+    m_grid->setIconSize(QSize(m_thumbSize, m_thumbSize));
+    // Leave room around the icon for spacing and the single-line caption.
+    m_grid->setGridSize(QSize(m_thumbSize + 22, m_thumbSize + 22));
+}
+
+void FolderBrowserPanel::zoomThumbnails(int steps)
+{
+    const int size = qBound(kThumbMin, m_thumbSize + steps * kThumbStep, kThumbMax);
+    if (size == m_thumbSize)
+        return;
+    m_thumbSize = size;
+    applyThumbSize();
+}
+
+bool FolderBrowserPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_grid->viewport())
+    {
+        if (event->type() == QEvent::Wheel)
+        {
+            auto* we = static_cast<QWheelEvent*>(event);
+            if (we->modifiers() & Qt::ControlModifier)
+            {
+                zoomThumbnails(we->angleDelta().y() > 0 ? +1 : -1);
+                return true;   // consume: don't also scroll the list
+            }
+        }
+        else if (event->type() == QEvent::NativeGesture)
+        {
+            auto* ng = static_cast<QNativeGestureEvent*>(event);
+            if (ng->gestureType() == Qt::ZoomNativeGesture)
+            {
+                // macOS trackpad pinch: value() is a small per-event delta
+                // (>0 = spread/zoom-in). Accumulate until it crosses one step.
+                m_pinchAccum += ng->value();
+                while (m_pinchAccum >=  0.10) { zoomThumbnails(+1); m_pinchAccum -= 0.10; }
+                while (m_pinchAccum <= -0.10) { zoomThumbnails(-1); m_pinchAccum += 0.10; }
+                return true;
+            }
+        }
+    }
+    return QObject::eventFilter(watched, event);
 }
 
 void FolderBrowserPanel::openFolder(const QString& dirPath)

@@ -42,7 +42,9 @@ private slots:
 private:
     void requestThumbnail(const QString& path) const;
 
-    static const int kThumb = 128;
+    // Thumbnails are generated at the maximum zoom size (3x); the view scales the
+    // icon down for smaller zoom levels, so zooming stays instant and crisp.
+    static const int kThumb = 128 * 3;
 
     QStringList                     m_files;
     QVector<bool>                   m_dirs;
