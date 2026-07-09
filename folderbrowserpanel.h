@@ -12,8 +12,8 @@ class QTreeView;
 class QFileSystemModel;
 class QModelIndex;
 class QToolBar;
-class QLineEdit;
 class QAction;
+class LocationBar;
 class ThumbnailModel;
 
 // Owns the folder tree + thumbnail grid and the navigation between them. The tree
@@ -77,11 +77,11 @@ private:
     double             m_pinchAccum = 0.0;   // accumulated macOS pinch magnitude
 
     // Navigation toolbar + history
-    QToolBar*   m_toolBar     = nullptr;
-    QAction*    m_backAct     = nullptr;
-    QAction*    m_forwardAct  = nullptr;
-    QAction*    m_upAct       = nullptr;
-    QLineEdit*  m_locationEdit = nullptr;
+    QToolBar*    m_toolBar    = nullptr;
+    QAction*     m_backAct    = nullptr;
+    QAction*     m_forwardAct = nullptr;
+    QAction*     m_upAct      = nullptr;
+    LocationBar* m_location   = nullptr;
     QStringList m_history;                 // visited folders, oldest -> newest
     int         m_histIndex   = -1;        // index into m_history of current folder
     bool        m_inHistoryNav = false;    // suppress recording during back/forward

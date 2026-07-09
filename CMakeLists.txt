@@ -111,6 +111,7 @@ qt_add_executable(MobilePhotoViewer WIN32
     panoramawidget.cpp    panoramawidget.h
     metadatapanel.cpp     metadatapanel.h
     folderbrowserpanel.cpp folderbrowserpanel.h
+    locationbar.cpp       locationbar.h
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h

@@ -1,6 +1,7 @@
 #include "folderbrowserpanel.h"
 #include "explorerselectiondelegate.h"
 #include "thumbnailmodel.h"
+#include "locationbar.h"
 
 #include <QListView>
 #include <QTreeView>
@@ -219,13 +220,10 @@ void FolderBrowserPanel::buildToolBar()
 
     m_toolBar->addSeparator();
 
-    // Current location: shows the path, and typing one + Enter navigates to it.
-    m_locationEdit = new QLineEdit;
-    m_locationEdit->setClearButtonEnabled(true);
-    m_locationEdit->setPlaceholderText(tr("Location"));
-    connect(m_locationEdit, &QLineEdit::returnPressed, this,
-            [this] { openFolder(m_locationEdit->text().trimmed()); });
-    m_toolBar->addWidget(m_locationEdit);
+    // Current location: clickable breadcrumbs, or click to type a path (Enter).
+    m_location = new LocationBar;
+    connect(m_location, &LocationBar::navigate, this, &FolderBrowserPanel::openFolder);
+    m_toolBar->addWidget(m_location);
 
     // Sort menu: an exclusive key, plus an exclusive ascending/descending toggle.
     QToolButton* sortBtn = new QToolButton;
@@ -372,8 +370,8 @@ void FolderBrowserPanel::onFolderSelected(const QModelIndex& index)
     m_currentPath = dir;
     reloadEntries();                       // fill the grid (folders first, sorted)
 
-    if (m_locationEdit)
-        m_locationEdit->setText(dir);
+    if (m_location)
+        m_location->setPath(dir);
 
     // Record the visit unless we got here by pressing Back/Forward.
     if (!m_inHistoryNav)
