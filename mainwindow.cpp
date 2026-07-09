@@ -1,7 +1,6 @@
 #include "mainwindow.h"
 #include "explorerselectiondelegate.h"
 #include "ui_mainwindow.h"
-#include <QLabel>
 #include <QImageReader>
 #include <QBuffer>
 #include <QMediaPlayer>
@@ -24,10 +23,8 @@
 #include <QListView>
 #include <QTreeView>
 #include <QFileSystemModel>
-#include <QTreeWidget>
 #include <QDockWidget>
 #include <QFileDialog>
-#include <QHeaderView>
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
@@ -48,6 +45,7 @@
 
 #include "thumbnailmodel.h"
 #include "panoramawidget.h"
+#include "metadatapanel.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -120,24 +118,18 @@ void MainWindow::setupBrowser()
     foldersDock->setWidget(m_folderTree);
     addDockWidget(Qt::LeftDockWidgetArea, foldersDock);
 
+    // Preview + Metadata panels (owned by MetadataPanel, placed in their docks).
+    m_info = new MetadataPanel(this);
+
     // Preview dock (left, below folders)
-    m_preview = new QLabel;
-    m_preview->setAlignment(Qt::AlignCenter);
-    m_preview->setMinimumHeight(180);
-    m_preview->setStyleSheet("background:#202020;");
     QDockWidget* previewDock = new QDockWidget(tr("Preview"), this);
-    previewDock->setWidget(m_preview);
+    previewDock->setWidget(m_info->previewWidget());
     addDockWidget(Qt::LeftDockWidgetArea, previewDock);
     splitDockWidget(foldersDock, previewDock, Qt::Vertical);
 
     // Metadata dock (right)
-    m_metadata = new QTreeWidget;
-    m_metadata->setColumnCount(2);
-    m_metadata->setHeaderLabels({ tr("Property"), tr("Value") });
-    m_metadata->setRootIsDecorated(false);
-    m_metadata->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     QDockWidget* metaDock = new QDockWidget(tr("Metadata"), this);
-    metaDock->setWidget(m_metadata);
+    metaDock->setWidget(m_info->metadataWidget());
     addDockWidget(Qt::RightDockWidgetArea, metaDock);
 
     resizeDocks({ foldersDock }, { 240 }, Qt::Horizontal);
@@ -274,9 +266,9 @@ void MainWindow::onFolderSelected(const QModelIndex& index)
 void MainWindow::onThumbSelected(const QModelIndex& index)
 {
     if (!m_thumbs->isDir(index))
-        updateSidePanels(m_thumbs->filePath(index));
+        m_info->setFile(m_thumbs->filePath(index));
     else
-        updateSidePanels(QString());
+        m_info->setFile(QString());
 }
 
 void MainWindow::onThumbActivated(const QModelIndex& index)
@@ -304,87 +296,6 @@ void MainWindow::onOpenFolder()
     const QString dir = QFileDialog::getExistingDirectory(this, tr("Open folder"));
     if (!dir.isEmpty())
         OpenFolder(dir);
-}
-
-QImage MainWindow::loadImage(const QString& path) const
-{
-    const QString lower = path.toLower();
-    if (lower.endsWith("heic") || lower.endsWith("heif"))
-    {
-        HeifManager m(path);
-        if (m.getWidth() && m.getHeight())
-        {
-            QImage img(m.getDecodedImage().get(),
-                       static_cast<int>(m.getWidth()), static_cast<int>(m.getHeight()),
-                       QImage::Format_RGBA8888);
-            return img.copy();   // own the pixels; HeifManager frees its buffer
-        }
-        return QImage();
-    }
-    QImageReader reader(path);
-    reader.setAutoTransform(true);
-    return reader.read();
-}
-
-void MainWindow::updateSidePanels(const QString& path)
-{
-    m_metadata->clear();
-    if (path.isEmpty())
-    {
-        m_preview->clear();
-        return;
-    }
-
-    // Preview (scaled).
-    QImage img = loadImage(path);
-    if (!img.isNull())
-    {
-        const QSize box = m_preview->size().isValid() && m_preview->width() > 20
-                              ? m_preview->size() : QSize(240, 240);
-        m_preview->setPixmap(QPixmap::fromImage(
-            img.scaled(box, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
-    }
-    else
-    {
-        m_preview->setText(tr("No preview"));
-    }
-
-    // Metadata.
-    auto add = [this](const QString& k, const QString& v) {
-        if (!v.isEmpty())
-            new QTreeWidgetItem(m_metadata, { k, v });
-    };
-    QFileInfo fi(path);
-    add(tr("Name"), fi.fileName());
-    add(tr("Size"), QString::number(fi.size() / 1024) + " KB");
-    add(tr("Modified"), fi.lastModified().toString(Qt::ISODate));
-    if (!img.isNull())
-        add(tr("Dimensions"), QString("%1 x %2").arg(img.width()).arg(img.height()));
-
-    QFile f(path);
-    if (f.open(QIODevice::ReadOnly))
-    {
-        const QByteArray bytes = f.read(256 * 1024);   // header is enough for EXIF
-        TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(bytes.constData()), bytes.size());
-        if (exif.Fields)
-        {
-            const QString make = QString::fromStdString(exif.Make);
-            const QString model = QString::fromStdString(exif.Model);
-            add(tr("Camera"), (make + " " + model).trimmed());
-            add(tr("Date"), QString::fromStdString(exif.DateTimeOriginal));
-            if (exif.ExposureTime > 0)
-                add(tr("Exposure"), QString("1/%1 s").arg(qRound(1.0 / exif.ExposureTime)));
-            if (exif.FNumber > 0)
-                add(tr("F-number"), "f/" + QString::number(exif.FNumber, 'g', 3));
-            if (exif.ISOSpeedRatings > 0)
-                add(tr("ISO"), QString::number(exif.ISOSpeedRatings));
-            if (exif.FocalLength > 0)
-                add(tr("Focal length"), QString::number(exif.FocalLength, 'g', 3) + " mm");
-            if (exif.GeoLocation.hasLatLon())
-                add(tr("GPS"), QString("%1, %2")
-                        .arg(exif.GeoLocation.Latitude).arg(exif.GeoLocation.Longitude));
-        }
-    }
 }
 
 // --------------------------------------------------------------------------
@@ -506,6 +417,10 @@ void MainWindow::SetImage(const QString& imgPath)
 
     // Equirectangular panoramas open flat, with a 360 button to enter the sphere.
     ui->photoVidget->SetPanoramaButtonVisible(detectPanorama(imgPath));
+
+    // Keep the side panels in sync with whatever image is on screen -- this also
+    // covers paths that bypass grid selection (drag & drop, Open File, stepImage).
+    m_info->setFile(imgPath);
 
     setWindowTitle(imgPath);
     showViewMode();

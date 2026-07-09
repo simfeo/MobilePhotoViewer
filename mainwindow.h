@@ -20,13 +20,11 @@ class QStackedWidget;
 class QListView;
 class QTreeView;
 class QFileSystemModel;
-class QLabel;
-class QTreeWidget;
 class QModelIndex;
-class QImage;
 class QAction;
 class ThumbnailModel;
 class PanoramaWidget;
+class MetadataPanel;
 
 class MainWindow : public QMainWindow
 {
@@ -68,8 +66,6 @@ private:
     void showBrowseMode();
     void setFullScreenView(bool on);
     void stepImage(int delta);
-    void updateSidePanels(const QString& path);
-    QImage loadImage(const QString& path) const;
 
     Ui::MainWindow*     ui;
     QString             m_currentPath;
@@ -82,8 +78,7 @@ private:
     ThumbnailModel*     m_thumbs;
     QTreeView*          m_folderTree;
     QFileSystemModel*   m_dirModel;
-    QLabel*             m_preview;
-    QTreeWidget*        m_metadata;
+    MetadataPanel*      m_info;
     QAction*            m_fullScreenAction;
     QAction*            m_saveVideoAction;
     PanoramaWidget*     m_pano;

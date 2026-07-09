@@ -109,6 +109,7 @@ qt_add_executable(MobilePhotoViewer WIN32
     jpegmanager.cpp       jpegmanager.h
     thumbnailmodel.cpp    thumbnailmodel.h
     panoramawidget.cpp    panoramawidget.h
+    metadatapanel.cpp     metadatapanel.h
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
