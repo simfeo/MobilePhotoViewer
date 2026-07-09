@@ -17,14 +17,10 @@ class QDragMoveEvent;
 class QWheelEvent;
 class QKeyEvent;
 class QStackedWidget;
-class QListView;
-class QTreeView;
-class QFileSystemModel;
-class QModelIndex;
 class QAction;
-class ThumbnailModel;
 class PanoramaWidget;
 class MetadataPanel;
+class FolderBrowserPanel;
 
 class MainWindow : public QMainWindow
 {
@@ -47,9 +43,6 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private slots:
-    void onFolderSelected(const QModelIndex& index);
-    void onThumbSelected(const QModelIndex& index);
-    void onThumbActivated(const QModelIndex& index);
     void onOpenFile();
     void onOpenFolder();
     void onSaveVideo();
@@ -69,15 +62,11 @@ private:
 
     Ui::MainWindow*     ui;
     QString             m_currentPath;
-    QList<QString>      m_supportedFormats;
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
 
     // browsing mode
     QStackedWidget*     m_stack;
-    QListView*          m_grid;
-    ThumbnailModel*     m_thumbs;
-    QTreeView*          m_folderTree;
-    QFileSystemModel*   m_dirModel;
+    FolderBrowserPanel* m_browser;
     MetadataPanel*      m_info;
     QAction*            m_fullScreenAction;
     QAction*            m_saveVideoAction;

@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "explorerselectiondelegate.h"
 #include "ui_mainwindow.h"
 #include <QImageReader>
 #include <QBuffer>
@@ -16,13 +15,9 @@
 
 #include <QFile>
 #include <QFileInfo>
-#include <QFileInfoList>
 #include <QDir>
 
 #include <QStackedWidget>
-#include <QListView>
-#include <QTreeView>
-#include <QFileSystemModel>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QMenuBar>
@@ -34,18 +29,14 @@
 #include <QApplication>
 
 #include <functional>
-#include <QItemSelectionModel>
-#include <QStandardPaths>
-
-#include <QDebug>
 
 #include <jpegmanager.h>
 #include <heifmanager.h>
 #include <TinyEXIF.h>
 
-#include "thumbnailmodel.h"
 #include "panoramawidget.h"
 #include "metadatapanel.h"
+#include "folderbrowserpanel.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -59,12 +50,6 @@ MainWindow::MainWindow(QWidget* parent)
     ui->setupUi(this);
 
     setAcceptDrops(true);
-    for (auto& i : QImageReader::supportedImageFormats())
-    {
-        m_supportedFormats.append("*."+i);
-    }
-    m_supportedFormats.append("*.heic");
-    m_supportedFormats.append("*.heif");
 
     setupBrowser();
     setupMenus();
@@ -80,42 +65,21 @@ MainWindow::~MainWindow()
 // --------------------------------------------------------------------------
 void MainWindow::setupBrowser()
 {
-    // Central stack: [0] thumbnail grid (browse), [1] the image/video viewer.
+    // Central stack: [0] thumbnail grid (browse), [1] the image/video viewer,
+    // [2] the photosphere. The folder browser owns the grid; we just place it.
     m_stack = new QStackedWidget(this);
+    m_browser = new FolderBrowserPanel(this);
 
-    m_thumbs = new ThumbnailModel(this);
-    m_grid = new QListView(m_stack);
-    m_grid->setModel(m_thumbs);
-    m_grid->setItemDelegate(new ExplorerSelectionDelegate(m_grid));
-    m_grid->setViewMode(QListView::IconMode);
-    m_grid->setIconSize(QSize(128, 128));
-    m_grid->setGridSize(QSize(150, 150));
-    m_grid->setResizeMode(QListView::Adjust);
-    m_grid->setUniformItemSizes(true);
-    m_grid->setMovement(QListView::Static);
-    m_grid->setSpacing(6);
-    m_grid->setWordWrap(true);
-    m_grid->setSelectionMode(QAbstractItemView::SingleSelection);
-
-    m_stack->addWidget(m_grid);                 // index 0
+    m_stack->addWidget(m_browser->gridWidget());   // index 0
     ui->photoVidget->setParent(m_stack);
-    m_stack->addWidget(ui->photoVidget);        // index 1
+    m_stack->addWidget(ui->photoVidget);           // index 1
     m_pano = new PanoramaWidget(m_stack);
-    m_stack->addWidget(m_pano);                 // index 2 (photospheres)
+    m_stack->addWidget(m_pano);                    // index 2 (photospheres)
     setCentralWidget(m_stack);
 
     // Folders dock (left, top)
-    m_dirModel = new QFileSystemModel(this);
-    m_dirModel->setFilter(QDir::Dirs | QDir::Drives | QDir::NoDotAndDotDot);
-    m_dirModel->setRootPath("");
-    m_folderTree = new QTreeView;
-    m_folderTree->setModel(m_dirModel);
-    m_folderTree->setItemDelegate(new ExplorerSelectionDelegate(m_folderTree));
-    m_folderTree->setHeaderHidden(true);
-    for (int c = 1; c < m_dirModel->columnCount(); ++c)
-        m_folderTree->setColumnHidden(c, true);
     QDockWidget* foldersDock = new QDockWidget(tr("Folders"), this);
-    foldersDock->setWidget(m_folderTree);
+    foldersDock->setWidget(m_browser->folderTreeWidget());
     addDockWidget(Qt::LeftDockWidgetArea, foldersDock);
 
     // Preview + Metadata panels (owned by MetadataPanel, placed in their docks).
@@ -134,11 +98,12 @@ void MainWindow::setupBrowser()
 
     resizeDocks({ foldersDock }, { 240 }, Qt::Horizontal);
 
-    connect(m_folderTree->selectionModel(), &QItemSelectionModel::currentChanged,
-            this, &MainWindow::onFolderSelected);
-    connect(m_grid->selectionModel(), &QItemSelectionModel::currentChanged,
-            this, &MainWindow::onThumbSelected);
-    connect(m_grid, &QListView::doubleClicked, this, &MainWindow::onThumbActivated);
+    connect(m_browser, &FolderBrowserPanel::previewRequested, m_info, &MetadataPanel::setFile);
+    connect(m_browser, &FolderBrowserPanel::imageActivated, this, &MainWindow::SetImage);
+    connect(m_browser, &FolderBrowserPanel::folderChanged, this, [this](const QString& dir) {
+        setWindowTitle(dir);
+        showBrowseMode();
+    });
     connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
     connect(ui->photoVidget, &ImageRenderWidget::panoramaRequested, this, &MainWindow::showPanorama);
 
@@ -228,58 +193,13 @@ void MainWindow::showViewMode()
 
 void MainWindow::showBrowseMode()
 {
-    m_stack->setCurrentWidget(m_grid);
-    m_grid->setFocus();
+    m_stack->setCurrentWidget(m_browser->gridWidget());
+    m_browser->gridWidget()->setFocus();
 }
 
 void MainWindow::OpenFolder(const QString& dirPath)
 {
-    if (dirPath.isEmpty())
-        return;
-    // Selecting the folder in the tree drives onFolderSelected(), which loads it.
-    const QModelIndex idx = m_dirModel->index(dirPath);
-    if (idx.isValid())
-    {
-        m_folderTree->setCurrentIndex(idx);
-        m_folderTree->scrollTo(idx);
-        m_folderTree->expand(idx);
-    }
-}
-
-void MainWindow::onFolderSelected(const QModelIndex& index)
-{
-    const QString dir = m_dirModel->filePath(index);
-    if (dir.isEmpty())
-        return;
-
-    // Show the folder's content: sub-folders first, then supported images -- so
-    // the grid works as a file browser, not only a picture list.
-    QDir d(dir);
-    QFileInfoList entries = d.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-    entries += d.entryInfoList(m_supportedFormats, QDir::Files, QDir::Name);
-
-    m_thumbs->setEntries(entries);
-    setWindowTitle(dir);
-    showBrowseMode();
-}
-
-void MainWindow::onThumbSelected(const QModelIndex& index)
-{
-    if (!m_thumbs->isDir(index))
-        m_info->setFile(m_thumbs->filePath(index));
-    else
-        m_info->setFile(QString());
-}
-
-void MainWindow::onThumbActivated(const QModelIndex& index)
-{
-    const QString path = m_thumbs->filePath(index);
-    if (path.isEmpty())
-        return;
-    if (m_thumbs->isDir(index))
-        OpenFolder(path);   // navigate into the sub-folder
-    else
-        SetImage(path);
+    m_browser->openFolder(dirPath);   // public entry point (command line, drag & drop)
 }
 
 void MainWindow::onOpenFile()
@@ -515,7 +435,7 @@ void MainWindow::stepImage(int delta)
     if (m_currentPath.isEmpty())
         return;
     QDir dir = QFileInfo(m_currentPath).absoluteDir();
-    QStringList images = dir.entryList(m_supportedFormats, QDir::Files, QDir::Name);
+    QStringList images = dir.entryList(m_browser->supportedFormats(), QDir::Files, QDir::Name);
     if (images.isEmpty())
         return;
     const int idx = images.indexOf(QFileInfo(m_currentPath).fileName());
@@ -574,7 +494,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     {
         if (isFullScreen())
             setFullScreenView(false);
-        else if (m_stack->currentWidget() != m_grid)
+        else if (m_stack->currentWidget() != m_browser->gridWidget())
             showBrowseMode();   // back to the thumbnails (from image or pano view)
     }
     else
