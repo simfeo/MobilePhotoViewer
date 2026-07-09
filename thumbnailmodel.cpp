@@ -6,6 +6,8 @@
 #include <QFileInfoList>
 #include <QFileIconProvider>
 #include <QPainter>
+#include <QMimeData>
+#include <QUrl>
 
 ThumbnailModel::ThumbnailModel(QObject* parent)
     : QAbstractListModel(parent)
@@ -83,6 +85,40 @@ QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
     default:
         return QVariant();
     }
+}
+
+Qt::ItemFlags ThumbnailModel::flags(const QModelIndex& index) const
+{
+    Qt::ItemFlags f = QAbstractListModel::flags(index);
+    if (index.isValid())
+        f |= Qt::ItemIsDragEnabled;
+    return f;
+}
+
+QStringList ThumbnailModel::mimeTypes() const
+{
+    return { QStringLiteral("text/uri-list") };
+}
+
+QMimeData* ThumbnailModel::mimeData(const QModelIndexList& indexes) const
+{
+    QList<QUrl> urls;
+    for (const QModelIndex& index : indexes)
+    {
+        if (index.isValid() && index.row() < m_files.size())
+            urls.append(QUrl::fromLocalFile(m_files.at(index.row())));
+    }
+    if (urls.isEmpty())
+        return nullptr;
+
+    QMimeData* mime = new QMimeData;
+    mime->setUrls(urls);   // text/uri-list -> Explorer copy, Telegram/WhatsApp share
+    return mime;
+}
+
+Qt::DropActions ThumbnailModel::supportedDragActions() const
+{
+    return Qt::CopyAction;   // drag out = copy/share, never move the originals
 }
 
 void ThumbnailModel::requestThumbnail(const QString& path) const

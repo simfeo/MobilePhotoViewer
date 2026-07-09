@@ -12,6 +12,7 @@
 class QThreadPool;
 template<typename T> class QList;
 class QFileInfo;
+class QMimeData;
 
 // List model that feeds a QListView (icon mode) with a folder's contents:
 // sub-folders (folder icon) and images (thumbnail generated off the UI thread).
@@ -27,6 +28,13 @@ public:
 
     int      rowCount(const QModelIndex& parent = QModelIndex()) const override;
     QVariant data(const QModelIndex& index, int role) const override;
+
+    // Dragging entries out of the app: hand the selected files to the OS as a
+    // uri-list so a drop copies them (Explorer) or shares them (Telegram, ...).
+    Qt::ItemFlags   flags(const QModelIndex& index) const override;
+    QStringList     mimeTypes() const override;
+    QMimeData*      mimeData(const QModelIndexList& indexes) const override;
+    Qt::DropActions supportedDragActions() const override;
 
 private slots:
     void onThumbnailReady(const QString& path, const QImage& image);

@@ -31,7 +31,17 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     m_grid->setMovement(QListView::Static);
     m_grid->setSpacing(6);
     m_grid->setWordWrap(true);
-    m_grid->setSelectionMode(QAbstractItemView::SingleSelection);
+
+    // Explorer-style selection: Ctrl/Shift extend, and a rubber-band rectangle
+    // selects a range by mouse.
+    m_grid->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_grid->setSelectionRectVisible(true);
+
+    // Drag the selected images out of the app (copy to a folder, share to other
+    // apps). DragOnly: the grid initiates drags but doesn't accept internal drops.
+    m_grid->setDragEnabled(true);
+    m_grid->setDragDropMode(QAbstractItemView::DragOnly);
+    m_grid->setDefaultDropAction(Qt::CopyAction);
 
     // Folder tree backed by the filesystem.
     m_dirModel = new QFileSystemModel(this);
