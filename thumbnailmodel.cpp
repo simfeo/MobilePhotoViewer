@@ -90,7 +90,8 @@ QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
 Qt::ItemFlags ThumbnailModel::flags(const QModelIndex& index) const
 {
     Qt::ItemFlags f = QAbstractListModel::flags(index);
-    if (index.isValid())
+    // Only images are draggable; folders are for navigation, not drag-out.
+    if (index.isValid() && index.row() < m_dirs.size() && !m_dirs.at(index.row()))
         f |= Qt::ItemIsDragEnabled;
     return f;
 }
@@ -105,8 +106,12 @@ QMimeData* ThumbnailModel::mimeData(const QModelIndexList& indexes) const
     QList<QUrl> urls;
     for (const QModelIndex& index : indexes)
     {
-        if (index.isValid() && index.row() < m_files.size())
-            urls.append(QUrl::fromLocalFile(m_files.at(index.row())));
+        const int row = index.row();
+        if (!index.isValid() || row >= m_files.size())
+            continue;
+        if (row < m_dirs.size() && m_dirs.at(row))
+            continue;   // skip folders -- images only
+        urls.append(QUrl::fromLocalFile(m_files.at(row)));
     }
     if (urls.isEmpty())
         return nullptr;
