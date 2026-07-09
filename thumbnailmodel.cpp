@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QMimeData>
 #include <QUrl>
+#include <QFile>
 
 ThumbnailModel::ThumbnailModel(QObject* parent)
     : QAbstractListModel(parent)
@@ -69,6 +70,7 @@ QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
     switch (role)
     {
     case Qt::DisplayRole:
+    case Qt::EditRole:                         // prefill the rename editor
         return QFileInfo(path).fileName();
     case Qt::ToolTipRole:
         return path;
@@ -90,10 +92,37 @@ QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
 Qt::ItemFlags ThumbnailModel::flags(const QModelIndex& index) const
 {
     Qt::ItemFlags f = QAbstractListModel::flags(index);
-    // Only images are draggable; folders are for navigation, not drag-out.
-    if (index.isValid() && index.row() < m_dirs.size() && !m_dirs.at(index.row()))
-        f |= Qt::ItemIsDragEnabled;
+    if (index.isValid())
+    {
+        f |= Qt::ItemIsEditable;   // rename (files and folders)
+        // Only images are draggable; folders are for navigation, not drag-out.
+        if (index.row() < m_dirs.size() && !m_dirs.at(index.row()))
+            f |= Qt::ItemIsDragEnabled;
+    }
     return f;
+}
+
+bool ThumbnailModel::setData(const QModelIndex& index, const QVariant& value, int role)
+{
+    if (role != Qt::EditRole || !index.isValid() || index.row() >= m_files.size())
+        return false;
+
+    const QString newName = value.toString().trimmed();
+    const QString oldPath = m_files.at(index.row());
+    const QFileInfo fi(oldPath);
+    if (newName.isEmpty() || newName == fi.fileName())
+        return false;
+
+    const QString newPath = fi.absolutePath() + '/' + newName;
+    if (QFile::exists(newPath) || !QFile::rename(oldPath, newPath))
+        return false;   // refuse to clobber an existing file / failed rename
+
+    m_files[index.row()] = newPath;
+    if (m_cache.contains(oldPath))
+        m_cache.insert(newPath, m_cache.take(oldPath));   // keep the thumbnail
+    emit dataChanged(index, index,
+                     { Qt::DisplayRole, Qt::EditRole, Qt::ToolTipRole, Qt::DecorationRole });
+    return true;
 }
 
 QStringList ThumbnailModel::mimeTypes() const

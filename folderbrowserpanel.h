@@ -13,7 +13,10 @@ class QFileSystemModel;
 class QModelIndex;
 class QToolBar;
 class QAction;
+class QMenu;
+class QPoint;
 class LocationBar;
+class GridContextMenu;
 class ThumbnailModel;
 
 // Owns the folder tree + thumbnail grid and the navigation between them. The tree
@@ -29,6 +32,8 @@ public:
     QWidget*  folderTreeWidget() const;   // for the Folders dock
     QWidget*  gridWidget()       const;   // for the central stack
     QToolBar* toolBar()          const;   // navigation + sort toolbar (top of window)
+
+    void fillEditMenu(QMenu* menu);       // add the file-operation actions to a menu
 
     const QStringList& supportedFormats() const { return m_supportedFormats; }
 
@@ -53,6 +58,16 @@ private slots:
     void goForward();
     void goUp();
 
+    void onContextMenu(const QPoint& pos);
+    void cutSelection();
+    void copySelection();
+    void pasteIntoFolder();
+    void deleteSelection();
+    void renameSelection();
+    void copyPathOfSelection();
+    void showSelectionInExplorer();
+    void refresh();
+
 private:
     // How the grid content is ordered. Folders are ALWAYS listed first and always
     // sorted by name; the key below only reorders the files among themselves.
@@ -60,6 +75,9 @@ private:
 
     void applyThumbSize();   // push m_thumbSize onto the grid's icon/grid size
     void buildToolBar();
+    void buildFileActions();                           // cut/copy/paste/... actions
+    void copyToClipboard(bool cut);
+    QStringList selectedPaths() const;
     void reloadEntries();                              // re-sort + refill the grid
     QFileInfoList sortedEntries(const QString& dir) const;
     void updateNavActions();                           // enable/disable back/fwd/up
@@ -88,6 +106,17 @@ private:
     QString     m_currentPath;
     SortKey     m_sortKey       = SortKey::Name;
     bool        m_sortDescending = false;
+
+    // File operations (also shown in the Edit menu and the grid context menu)
+    QAction* m_cutAct           = nullptr;
+    QAction* m_copyAct          = nullptr;
+    QAction* m_pasteAct         = nullptr;
+    QAction* m_deleteAct        = nullptr;
+    QAction* m_renameAct        = nullptr;
+    QAction* m_copyPathAct      = nullptr;
+    QAction* m_showInExplorerAct = nullptr;
+    QAction* m_refreshAct       = nullptr;
+    GridContextMenu* m_contextMenu = nullptr;
 };
 
 #endif // FOLDERBROWSERPANEL_H

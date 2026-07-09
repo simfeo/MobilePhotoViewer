@@ -2,6 +2,7 @@
 #include "explorerselectiondelegate.h"
 #include "thumbnailmodel.h"
 #include "locationbar.h"
+#include "gridcontextmenu.h"
 
 #include <QListView>
 #include <QTreeView>
@@ -28,6 +29,14 @@
 #include <QIcon>
 #include <QPolygonF>
 #include <QPalette>
+#include <QApplication>
+#include <QClipboard>
+#include <QMimeData>
+#include <QUrl>
+#include <QFile>
+#include <QProcess>
+#include <QPoint>
+#include <QMessageBox>
 
 #include <algorithm>
 
@@ -54,6 +63,41 @@ QIcon makeArrowIcon(Qt::ArrowType dir, const QColor& color, int px = 18)
     }
     p.drawPolygon(tri);
     return QIcon(pm);
+}
+
+// Return a destination path that doesn't collide: "name.ext" -> "name (2).ext".
+QString uniqueDest(const QString& path)
+{
+    if (!QFile::exists(path))
+        return path;
+    const QFileInfo fi(path);
+    const QString dir = fi.absolutePath();
+    const QString base = fi.completeBaseName();
+    const QString suffix = fi.suffix().isEmpty() ? QString() : '.' + fi.suffix();
+    for (int n = 2; ; ++n)
+    {
+        const QString candidate = QStringLiteral("%1/%2 (%3)%4").arg(dir, base).arg(n).arg(suffix);
+        if (!QFile::exists(candidate))
+            return candidate;
+    }
+}
+
+// Copy a file, or a directory recursively.
+bool copyRecursive(const QString& src, const QString& dst)
+{
+    const QFileInfo fi(src);
+    if (!fi.isDir())
+        return QFile::copy(src, dst);
+
+    if (!QDir().mkpath(dst))
+        return false;
+    const QDir sd(src);
+    for (const QFileInfo& e : sd.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden))
+    {
+        if (!copyRecursive(e.absoluteFilePath(), dst + '/' + e.fileName()))
+            return false;
+    }
+    return true;
 }
 }   // namespace
 
@@ -121,6 +165,14 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     addZoomKey(QKeySequence(Qt::Key_Plus),  +1);
     addZoomKey(QKeySequence(Qt::Key_Equal), +1);   // '+' key without Shift
     addZoomKey(QKeySequence(Qt::Key_Minus), -1);
+
+    // Right-click file operations. Editing is programmatic only (F2 / menu) so
+    // double-click still opens the image instead of starting a rename.
+    m_grid->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_grid->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    connect(m_grid, &QListView::customContextMenuRequested,
+            this, &FolderBrowserPanel::onContextMenu);
+    buildFileActions();
 
     buildToolBar();
     updateNavActions();
@@ -359,6 +411,210 @@ void FolderBrowserPanel::goUp()
     QDir d(m_currentPath);
     if (d.cdUp())
         openFolder(d.absolutePath());   // ordinary navigation -> records history
+}
+
+// --------------------------------------------------------------------------
+// File operations (context menu + Edit menu + shortcuts)
+// --------------------------------------------------------------------------
+void FolderBrowserPanel::buildFileActions()
+{
+    const auto mk = [this](const QString& text, const QKeySequence& sc) {
+        QAction* a = new QAction(text, this);
+        if (!sc.isEmpty())
+        {
+            a->setShortcut(sc);
+            a->setShortcutContext(Qt::WidgetWithChildrenShortcut);   // active while browsing
+            m_grid->addAction(a);
+        }
+        return a;
+    };
+
+    m_cutAct      = mk(tr("Cut"),          QKeySequence::Cut);
+    m_copyAct     = mk(tr("Copy"),         QKeySequence::Copy);
+    m_pasteAct    = mk(tr("Paste"),        QKeySequence::Paste);
+    m_deleteAct   = mk(tr("Delete"),       QKeySequence::Delete);
+    m_renameAct   = mk(tr("Rename"),       QKeySequence(Qt::Key_F2));
+    m_copyPathAct = mk(tr("Copy as Path"), QKeySequence(QStringLiteral("Ctrl+Shift+C")));
+#ifdef Q_OS_MACOS
+    m_showInExplorerAct = mk(tr("Show in Finder"),   QKeySequence());
+#else
+    m_showInExplorerAct = mk(tr("Show in Explorer"), QKeySequence());
+#endif
+    m_refreshAct  = mk(tr("Refresh"),      QKeySequence(Qt::Key_F5));
+
+    connect(m_cutAct,           &QAction::triggered, this, &FolderBrowserPanel::cutSelection);
+    connect(m_copyAct,          &QAction::triggered, this, &FolderBrowserPanel::copySelection);
+    connect(m_pasteAct,         &QAction::triggered, this, &FolderBrowserPanel::pasteIntoFolder);
+    connect(m_deleteAct,        &QAction::triggered, this, &FolderBrowserPanel::deleteSelection);
+    connect(m_renameAct,        &QAction::triggered, this, &FolderBrowserPanel::renameSelection);
+    connect(m_copyPathAct,      &QAction::triggered, this, &FolderBrowserPanel::copyPathOfSelection);
+    connect(m_showInExplorerAct,&QAction::triggered, this, &FolderBrowserPanel::showSelectionInExplorer);
+    connect(m_refreshAct,       &QAction::triggered, this, &FolderBrowserPanel::refresh);
+
+    const GridContextMenu::Actions acts{
+        m_cutAct, m_copyAct, m_pasteAct, m_deleteAct,
+        m_renameAct, m_copyPathAct, m_showInExplorerAct, m_refreshAct
+    };
+    m_contextMenu = new GridContextMenu(acts, m_grid);
+}
+
+void FolderBrowserPanel::fillEditMenu(QMenu* menu)
+{
+    menu->addAction(m_cutAct);
+    menu->addAction(m_copyAct);
+    menu->addAction(m_pasteAct);
+    menu->addSeparator();
+    menu->addAction(m_deleteAct);
+    menu->addAction(m_renameAct);
+    menu->addSeparator();
+    menu->addAction(m_copyPathAct);
+    menu->addAction(m_showInExplorerAct);
+    menu->addSeparator();
+    menu->addAction(m_refreshAct);
+}
+
+void FolderBrowserPanel::onContextMenu(const QPoint& pos)
+{
+    const QModelIndex idx = m_grid->indexAt(pos);
+    const QPoint global = m_grid->viewport()->mapToGlobal(pos);
+    if (idx.isValid())
+    {
+        // Right-clicking outside the current selection selects just that item.
+        if (!m_grid->selectionModel()->isSelected(idx))
+            m_grid->setCurrentIndex(idx);
+        m_contextMenu->popupForItem(global);
+    }
+    else
+    {
+        const QMimeData* clip = QApplication::clipboard()->mimeData();
+        const bool canPaste = clip && clip->hasUrls() && !m_currentPath.isEmpty();
+        m_contextMenu->popupForEmpty(global, canPaste);
+    }
+}
+
+QStringList FolderBrowserPanel::selectedPaths() const
+{
+    QStringList paths;
+    const QModelIndexList sel = m_grid->selectionModel()->selectedIndexes();
+    for (const QModelIndex& i : sel)
+        paths << m_thumbs->filePath(i);
+    return paths;
+}
+
+void FolderBrowserPanel::copyToClipboard(bool cut)
+{
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty())
+        return;
+
+    QList<QUrl> urls;
+    for (const QString& p : paths)
+        urls << QUrl::fromLocalFile(p);
+
+    QMimeData* mime = new QMimeData;
+    mime->setUrls(urls);
+    // Windows: tell Explorer whether a subsequent paste should move or copy.
+    QByteArray effect(4, '\0');
+    effect[0] = cut ? 2 : 1;   // DROPEFFECT_MOVE : DROPEFFECT_COPY
+    mime->setData(QStringLiteral("Preferred DropEffect"), effect);
+    QApplication::clipboard()->setMimeData(mime);
+}
+
+void FolderBrowserPanel::cutSelection()  { copyToClipboard(true); }
+void FolderBrowserPanel::copySelection() { copyToClipboard(false); }
+
+void FolderBrowserPanel::pasteIntoFolder()
+{
+    const QMimeData* mime = QApplication::clipboard()->mimeData();
+    if (!mime || !mime->hasUrls() || m_currentPath.isEmpty())
+        return;
+
+    const QByteArray eff = mime->data(QStringLiteral("Preferred DropEffect"));
+    const bool move = !eff.isEmpty() && quint8(eff.at(0)) == 2;
+
+    const QDir dest(m_currentPath);
+    const QList<QUrl> urls = mime->urls();   // snapshot before we touch the clipboard
+    for (const QUrl& url : urls)
+    {
+        const QString src = url.toLocalFile();
+        if (src.isEmpty())
+            continue;
+        const QString target = uniqueDest(dest.absoluteFilePath(QFileInfo(src).fileName()));
+        if (move)
+        {
+            if (!QDir().rename(src, target))   // cross-volume: fall back to copy+remove
+            {
+                if (copyRecursive(src, target))
+                {
+                    if (QFileInfo(src).isDir()) QDir(src).removeRecursively();
+                    else                        QFile::remove(src);
+                }
+            }
+        }
+        else
+        {
+            copyRecursive(src, target);
+        }
+    }
+    if (move)
+        QApplication::clipboard()->clear();
+    reloadEntries();
+}
+
+void FolderBrowserPanel::deleteSelection()
+{
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty())
+        return;
+
+    const QString question = paths.size() == 1
+        ? tr("Move \"%1\" to the Recycle Bin?").arg(QFileInfo(paths.first()).fileName())
+        : tr("Move %1 items to the Recycle Bin?").arg(paths.size());
+    if (QMessageBox::question(m_grid, tr("Delete"), question,
+                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return;
+
+    for (const QString& p : paths)
+        QFile::moveToTrash(p);   // recoverable (Recycle Bin / Trash)
+    reloadEntries();
+}
+
+void FolderBrowserPanel::renameSelection()
+{
+    const QModelIndex idx = m_grid->currentIndex();
+    if (idx.isValid())
+        m_grid->edit(idx);   // inline editor; commit routes to ThumbnailModel::setData
+}
+
+void FolderBrowserPanel::copyPathOfSelection()
+{
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty())
+        return;
+    QStringList quoted;
+    for (const QString& p : paths)
+        quoted << '"' + QDir::toNativeSeparators(p) + '"';
+    QApplication::clipboard()->setText(quoted.join(' '));
+}
+
+void FolderBrowserPanel::showSelectionInExplorer()
+{
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty())
+        return;
+    const QString path = paths.first();
+#if defined(Q_OS_WIN)
+    QProcess::startDetached("explorer.exe", { "/select," + QDir::toNativeSeparators(path) });
+#elif defined(Q_OS_MACOS)
+    QProcess::startDetached("open", { "-R", path });
+#else
+    QProcess::startDetached("xdg-open", { QFileInfo(path).absolutePath() });
+#endif
+}
+
+void FolderBrowserPanel::refresh()
+{
+    reloadEntries();
 }
 
 void FolderBrowserPanel::onFolderSelected(const QModelIndex& index)

@@ -142,6 +142,11 @@ void MainWindow::setupMenus()
 
     ui->actionExit->setShortcut(QKeySequence("Ctrl+Q"));   // already wired to close() in the .ui
 
+    // ---- Edit (file operations, inserted between File and Help) ----
+    QMenu* editMenu = new QMenu(tr("Edit"), this);
+    menuBar()->insertMenu(ui->menuHelp->menuAction(), editMenu);
+    m_browser->fillEditMenu(editMenu);
+
     // ---- View (inserted between File and Help) ----
     QMenu* viewMenu = new QMenu(tr("View"), this);
     menuBar()->insertMenu(ui->menuHelp->menuAction(), viewMenu);
