@@ -118,6 +118,16 @@ void MainWindow::setupBrowser()
     connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
     connect(ui->photoVidget, &ImageRenderWidget::panoramaRequested, this, &MainWindow::showPanorama);
 
+    // Toolbar +/- : zoom whatever the central stack is currently showing.
+    connect(m_browser, &FolderBrowserPanel::zoomRequested, this, [this](int steps) {
+        if (m_stack->currentWidget() == m_pano)
+            steps > 0 ? m_pano->zoomIn() : m_pano->zoomOut();
+        else if (m_stack->currentWidget() == ui->photoVidget)
+            steps > 0 ? ui->photoVidget->zoomIn() : ui->photoVidget->zoomOut();
+        else
+            m_browser->zoomThumbnails(steps);
+    });
+
     showBrowseMode();
 }
 

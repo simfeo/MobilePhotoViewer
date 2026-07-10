@@ -45,6 +45,9 @@ signals:
     void folderChanged(const QString& dirPath);   // a folder was loaded into the grid
     void imageActivated(const QString& path);     // an image was double-clicked
     void previewRequested(const QString& path);   // grid selection changed (empty = none)
+    // Toolbar +/- pressed. The host routes these: thumbnails in browse mode, the
+    // image/photosphere in viewer mode. steps: +1 = zoom in, -1 = zoom out.
+    void zoomRequested(int steps);
 
 protected:
     // Ctrl+wheel (Windows/Linux) and trackpad pinch (macOS) zoom on the grid.

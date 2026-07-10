@@ -300,9 +300,9 @@ void FolderBrowserPanel::buildToolBar()
     // Thumbnail zoom buttons (same action as Ctrl+wheel / pinch / +- keys).
     m_toolBar->addSeparator();
     QAction* zoomOut = m_toolBar->addAction(makeZoomIcon(false, fg), tr("Zoom Out"));
-    connect(zoomOut, &QAction::triggered, this, [this] { zoomThumbnails(-1); });
+    connect(zoomOut, &QAction::triggered, this, [this] { emit zoomRequested(-1); });
     QAction* zoomIn = m_toolBar->addAction(makeZoomIcon(true, fg), tr("Zoom In"));
-    connect(zoomIn, &QAction::triggered, this, [this] { zoomThumbnails(+1); });
+    connect(zoomIn, &QAction::triggered, this, [this] { emit zoomRequested(+1); });
 
     // Sort menu: an exclusive key, plus an exclusive ascending/descending toggle.
     QToolButton* sortBtn = new QToolButton;
