@@ -281,6 +281,7 @@ void FolderBrowserPanel::openFolder(const QString& dirPath)
 void FolderBrowserPanel::buildToolBar()
 {
     m_toolBar = new QToolBar(tr("Navigation"));
+    m_toolBar->setObjectName("NavigationToolBar");   // for saveState/restoreState
     m_toolBar->setMovable(false);
     const QColor fg = m_toolBar->palette().color(QPalette::ButtonText);
 

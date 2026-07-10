@@ -11,6 +11,8 @@ constexpr auto kUseLastFolder = "startup/useLastFolder";
 constexpr auto kStartFolder   = "startup/startFolder";
 constexpr auto kLastFolder    = "startup/lastFolder";
 constexpr auto kThumbSize     = "thumbnails/defaultSize";
+constexpr auto kWinGeometry   = "window/geometry";
+constexpr auto kWinState      = "window/state";
 
 bool isDir(const QString& path)
 {
@@ -68,5 +70,30 @@ QString resolvedStartupFolder()
     if (isDir(startFolder()))
         return startFolder();
     return QDir::homePath();
+}
+
+QByteArray windowGeometry()
+{
+    return QSettings().value(kWinGeometry).toByteArray();
+}
+
+void setWindowGeometry(const QByteArray& data)
+{
+    QSettings().setValue(kWinGeometry, data);
+}
+
+void clearWindowGeometry()
+{
+    QSettings().remove(kWinGeometry);
+}
+
+QByteArray windowState()
+{
+    return QSettings().value(kWinState).toByteArray();
+}
+
+void setWindowState(const QByteArray& data)
+{
+    QSettings().setValue(kWinState, data);
 }
 }   // namespace AppSettings

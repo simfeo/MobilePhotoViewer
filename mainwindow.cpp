@@ -12,6 +12,7 @@
 #include <QDragMoveEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QCloseEvent>
 
 #include <QFile>
 #include <QFileInfo>
@@ -57,11 +58,48 @@ MainWindow::MainWindow(QWidget* parent)
 
     setupBrowser();
     setupMenus();
+    restoreLayout();
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+// --------------------------------------------------------------------------
+// Window/layout persistence
+//
+// Two independent pieces: geometry (size/position) and state (dock + toolbar
+// arrangement). Both are saved on close and restored here. Geometry is only ever
+// discarded via the --reset-window command-line flag (handled in main(), which
+// clears the stored value before we construct); the dock layout can also be reset
+// to its as-built default from the View menu (resetWidgetLayout()).
+// --------------------------------------------------------------------------
+void MainWindow::restoreLayout()
+{
+    // Snapshot the default arrangement now, before any saved state is applied, so
+    // "Reset Layout" has something to restore to.
+    m_defaultState = saveState();
+
+    const QByteArray geometry = AppSettings::windowGeometry();
+    if (!geometry.isEmpty())
+        restoreGeometry(geometry);
+
+    const QByteArray state = AppSettings::windowState();
+    if (!state.isEmpty())
+        restoreState(state);
+}
+
+void MainWindow::resetWidgetLayout()
+{
+    restoreState(m_defaultState);
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    AppSettings::setWindowGeometry(saveGeometry());
+    AppSettings::setWindowState(saveState());
+    QMainWindow::closeEvent(event);
 }
 
 // --------------------------------------------------------------------------
@@ -90,8 +128,9 @@ void MainWindow::setupBrowser()
     centralLayout->addWidget(m_stack);
     setCentralWidget(central);
 
-    // Folders dock (left, top)
+    // Folders dock (left, top). Object names are required for saveState/restoreState.
     QDockWidget* foldersDock = new QDockWidget(tr("Folders"), this);
+    foldersDock->setObjectName("FoldersDock");
     foldersDock->setWidget(m_browser->folderTreeWidget());
     addDockWidget(Qt::LeftDockWidgetArea, foldersDock);
 
@@ -100,12 +139,14 @@ void MainWindow::setupBrowser()
 
     // Preview dock (left, below folders)
     QDockWidget* previewDock = new QDockWidget(tr("Preview"), this);
+    previewDock->setObjectName("PreviewDock");
     previewDock->setWidget(m_info->previewWidget());
     addDockWidget(Qt::LeftDockWidgetArea, previewDock);
     splitDockWidget(foldersDock, previewDock, Qt::Vertical);
 
     // Metadata dock (right)
     QDockWidget* metaDock = new QDockWidget(tr("Metadata"), this);
+    metaDock->setObjectName("MetadataDock");
     metaDock->setWidget(m_info->metadataWidget());
     addDockWidget(Qt::RightDockWidgetArea, metaDock);
 
@@ -211,6 +252,9 @@ void MainWindow::setupMenus()
     viewMenu->addAction(m_browser->toolBar()->toggleViewAction());   // Navigation toolbar
     for (QDockWidget* d : findChildren<QDockWidget*>())
         viewMenu->addAction(d->toggleViewAction());   // Folders / Preview / Metadata
+
+    viewMenu->addSeparator();
+    viewMenu->addAction(tr("Reset Layout"), this, &MainWindow::resetWidgetLayout);
 
     // ---- Help ----
     QAction* shortcuts = new QAction(tr("Keyboard Shortcuts"), this);

@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <QByteArray>
 #include <Tools/imagewithvideobase.h>
 
 
@@ -41,6 +42,7 @@ protected:
     void dragLeaveEvent(QDragLeaveEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;   // persist window layout
 
 private slots:
     void onOpenFile();
@@ -50,10 +52,12 @@ private slots:
     void onLicensing();
     void onShortcuts();
     void onSettings();
+    void resetWidgetLayout();   // restore docks/toolbar to their default arrangement
 
 private:
     void setupBrowser();
     void setupMenus();
+    void restoreLayout();   // capture default state, then apply any saved layout
     bool detectPanorama(const QString& path);   // fills m_pano* if equirectangular
     void showPanorama();                        // build the sphere and switch to it
     void showViewMode();
@@ -63,6 +67,7 @@ private:
 
     Ui::MainWindow*     ui;
     QString             m_currentPath;
+    QByteArray          m_defaultState;   // dock/toolbar layout as first built
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
 
     // browsing mode
