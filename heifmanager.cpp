@@ -12,7 +12,6 @@
 
 #include <libheif/heif.h>
 #include <libheif/heif_cxx.h>
-#include <libheif/api_structs.h>
 
 #include <Tools/heifreader.h>
 
@@ -111,7 +110,9 @@ void HeifManager::manageHeif()
 
         std::shared_ptr<heif_image> img(image, [](heif_image* p) { heif_image_release(p); });
 
-        qDebug() << "decoded image dimesions" << img->image->get_width() << "x" << img->image->get_height();
+        qDebug() << "decoded image dimesions"
+                 << heif_image_get_width(img.get(), heif_channel_interleaved) << "x"
+                 << heif_image_get_height(img.get(), heif_channel_interleaved);
 
         int r_stride = 0;
         const uint8_t* img_plane = heif_image_get_plane_readonly(img.get(), heif_channel_interleaved, &r_stride);

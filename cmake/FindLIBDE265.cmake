@@ -10,15 +10,16 @@
 # This file is found before libheif's bundled cmake/modules/FindLIBDE265.cmake
 # because our cmake/ dir is prepended to CMAKE_MODULE_PATH.
 
-if(TARGET libde265)
+# libde265 1.1.0 renamed the library target from "libde265" to "de265".
+if(TARGET de265)
     set(LIBDE265_FOUND TRUE)
-    set(LIBDE265_VERSION "1.0.8")
+    set(LIBDE265_VERSION "1.1.1")
     set(LIBDE265_INCLUDE_DIRS
         "${CMAKE_SOURCE_DIR}/third_party/libde265"
         "${CMAKE_BINARY_DIR}/third_party/libde265")
-    set(LIBDE265_LIBRARIES libde265)   # CMake target name -> resolved on link
+    set(LIBDE265_LIBRARIES de265)   # CMake target name -> resolved on link
 else()
     set(LIBDE265_FOUND FALSE)
-    message(FATAL_ERROR "FindLIBDE265: in-tree 'libde265' target not found; "
+    message(FATAL_ERROR "FindLIBDE265: in-tree 'de265' target not found; "
                         "add_subdirectory(third_party/libde265) must run first.")
 endif()

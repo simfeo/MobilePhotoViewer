@@ -27,29 +27,6 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidge
 set(ENABLE_SDL OFF CACHE BOOL "" FORCE)          # no SDL viewer in dec265
 add_subdirectory(third_party/libde265)
 
-# libde265 v1.0.8 bundles an old MSVC-compat extra/stdint.h that shadows the
-# real one on recent toolchains, causing "PTRDIFF_MAX/INTMAX_MAX undeclared" in
-# the STL headers. Strip extra/ from the include path of every libde265 target
-# (library + encoder/SSE object libs) so the complete system <stdint.h> is used;
-# the code reaches win32cond.h via a relative path, so extra/ isn't needed on -I.
-if(MSVC)
-    function(_strip_de265_extra_includes dir)
-        get_property(_targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
-        foreach(_t ${_targets})
-            get_target_property(_inc ${_t} INCLUDE_DIRECTORIES)
-            if(_inc)
-                list(FILTER _inc EXCLUDE REGEX "/extra$")
-                set_target_properties(${_t} PROPERTIES INCLUDE_DIRECTORIES "${_inc}")
-            endif()
-        endforeach()
-        get_property(_subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
-        foreach(_sub ${_subdirs})
-            _strip_de265_extra_includes("${_sub}")
-        endforeach()
-    endfunction()
-    _strip_de265_extra_includes("${CMAKE_CURRENT_SOURCE_DIR}/third_party/libde265")
-endif()
-
 # The dec265/enc265 CLI example tools are built unconditionally by libde265 but
 # aren't needed here; exclude them from the default build.
 foreach(_tool dec265 enc265 sherlock265)
@@ -88,8 +65,20 @@ set(WITH_JPEG_DECODER      OFF CACHE BOOL "" FORCE)
 set(WITH_JPEG_ENCODER      OFF CACHE BOOL "" FORCE)
 set(WITH_OpenJPEG_ENCODER  OFF CACHE BOOL "" FORCE)
 set(WITH_OpenJPEG_DECODER  OFF CACHE BOOL "" FORCE)
-set(WITH_EXAMPLES          OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING          OFF CACHE BOOL "" FORCE)
+# Codecs added since 1.17 that default ON -- keep them off (they'd need x264 /
+# OpenH264 and pull external dependencies we don't want).
+set(WITH_X264              OFF CACHE BOOL "" FORCE)
+set(WITH_OpenH264_DECODER  OFF CACHE BOOL "" FORCE)
+# Extra features/tools that default ON in newer libheif; none are needed for a
+# minimal HEVC-decode build and each drags in more dependencies.
+set(WITH_LIBSHARPYUV        OFF CACHE BOOL "" FORCE)
+set(WITH_UNCOMPRESSED_CODEC OFF CACHE BOOL "" FORCE)
+set(WITH_HEADER_COMPRESSION OFF CACHE BOOL "" FORCE)
+set(WITH_GDK_PIXBUF         OFF CACHE BOOL "" FORCE)
+set(WITH_EXAMPLES           OFF CACHE BOOL "" FORCE)
+set(WITH_EXAMPLE_HEIF_THUMB OFF CACHE BOOL "" FORCE)
+set(WITH_EXAMPLE_HEIF_VIEW  OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING           OFF CACHE BOOL "" FORCE)
 # libheif unconditionally builds Doxygen API docs when Doxygen is installed;
 # suppress that (it also needs graphviz 'dot' and just produces docs we don't want).
 set(CMAKE_DISABLE_FIND_PACKAGE_Doxygen ON)
@@ -143,9 +132,8 @@ target_include_directories(MobilePhotoViewer PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"                                # <jpegmanager.h>, <Tools/...>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/TinyEXIF"          # <TinyEXIF.h>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyxml2"          # <tinyxml2.h>
-    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif"           # <libheif/heif.h>
-    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif/libheif"   # <libheif/api_structs.h> (private)
-    "${CMAKE_CURRENT_BINARY_DIR}/third_party/libheif"           # generated heif_version.h
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif/libheif/api"  # <libheif/heif.h>, <libheif/heif_cxx.h>
+    "${CMAKE_CURRENT_BINARY_DIR}/third_party/libheif"              # generated <libheif/heif_version.h>
 )
 
 target_link_libraries(MobilePhotoViewer PRIVATE
