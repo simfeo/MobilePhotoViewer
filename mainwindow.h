@@ -74,6 +74,7 @@ private:
 
     // current image's panorama metadata (valid when m_isPano)
     bool m_isPano = false;
+    bool m_panoCylindrical = false;   // cylindrical vs equirectangular projection
     int  m_panoFullW = 0, m_panoFullH = 0;
     int  m_panoCropW = 0, m_panoCropH = 0, m_panoCropL = 0, m_panoCropT = 0;
 };

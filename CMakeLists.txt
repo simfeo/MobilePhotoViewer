@@ -100,7 +100,7 @@ add_subdirectory(third_party/libheif)
 # --------------------------------------------------------------------------
 qt_standard_project_setup()  # enables AUTOMOC / AUTOUIC / AUTORCC for the app
 
-qt_add_executable(MobilePhotoViewer WIN32
+qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     main.cpp
     mainwindow.cpp        mainwindow.h        mainwindow.ui
     imagerenderwidget.cpp imagerenderwidget.h imagerenderwidget.ui
@@ -165,5 +165,24 @@ if(WIN32)
         )
     else()
         message(WARNING "windeployqt not found; Qt DLLs will not be auto-deployed.")
+    endif()
+
+elseif(APPLE)
+    # --------------------------------------------------------------------------
+    # macOS: bundle the Qt frameworks and the heif/libde265 dylibs into the .app
+    # (and fix their rpaths) so it runs on machines without a Qt install.
+    # macdeployqt follows the app's linked libraries, so heif + libde265 are
+    # pulled in automatically -- no manual copy step needed.
+    # --------------------------------------------------------------------------
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${Qt6_DIR}/../../../bin")
+    if(MACDEPLOYQT_EXECUTABLE)
+        add_custom_command(TARGET MobilePhotoViewer POST_BUILD
+            COMMAND "${MACDEPLOYQT_EXECUTABLE}"
+                    "$<TARGET_BUNDLE_DIR:MobilePhotoViewer>"
+                    -always-overwrite
+            VERBATIM
+        )
+    else()
+        message(WARNING "macdeployqt not found; Qt frameworks will not be auto-bundled.")
     endif()
 endif()

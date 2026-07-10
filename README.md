@@ -143,13 +143,11 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ```
 
-The bundled libheif/libde265 submodules compile from source with Clang. To
-produce a self-contained bundle for distribution, run **macdeployqt** on the
-built app (the macOS analogue of the automatic Windows deployment step):
-
-```bash
-~/Qt/6.11.1/macos/bin/macdeployqt build/MobilePhotoViewer.app
-```
+The build produces `build/MobilePhotoViewer.app`. A `POST_BUILD` step runs
+**macdeployqt** to bundle the Qt frameworks and the libheif/libde265 dylibs into
+the `.app` (the macOS analogue of the automatic Windows deployment), so it runs
+on machines without a Qt install. The bundled codec submodules compile from
+source with Clang.
 
 macOS-specific behaviour is wired in: **pinch-to-zoom** on the thumbnail grid and
 **Show in Finder** in the context menu.
@@ -181,5 +179,5 @@ Launched with no arguments, it opens the browser at the filesystem root.
 - Use `CMakeLists.txt`; the old qmake `MobilePhotoViewer.pro` is superseded.
 - `QImageReader`'s default 128 MB allocation cap is lifted at startup so very
   large phone stills (e.g. 108 MP) decode instead of being rejected.
-- Automatic dependency deployment is configured for Windows only (windeployqt);
-  on macOS/Linux use macdeployqt or your platform's packaging as shown above.
+- Dependency deployment is automatic on Windows (windeployqt) and macOS
+  (macdeployqt); on Linux, bundle with your platform's packaging as needed.

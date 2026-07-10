@@ -254,10 +254,13 @@ bool MainWindow::detectPanorama(const QString& path)
     f.close();
 
     TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(head.constData()), head.size());
-    if (!exif.GPano.isEquirectangular())
+    const bool cylindrical =
+        QString::fromStdString(exif.GPano.ProjectionType).compare("cylindrical", Qt::CaseInsensitive) == 0;
+    if (!exif.GPano.isEquirectangular() && !cylindrical)
         return false;
 
     m_isPano     = true;
+    m_panoCylindrical = cylindrical;
     m_panoFullW  = static_cast<int>(exif.GPano.FullPanoWidthPixels);
     m_panoFullH  = static_cast<int>(exif.GPano.FullPanoHeightPixels);
     m_panoCropW  = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
@@ -277,6 +280,33 @@ void MainWindow::showPanorama()
     QImage img = r.read();
     if (img.isNull())
         return;
+
+    if (m_panoCylindrical)
+    {
+        // Cylindrical panorama: texture the crop straight onto a cylinder arc.
+        // FullPanoWidthPixels spans 360 deg, so the crop covers width/full of it;
+        // square-pixel geometry then fixes the vertical extent (no FullPanoHeight).
+        const int fullW = m_panoFullW > 0 ? m_panoFullW : img.width();
+        const int cropW = m_panoCropW > 0 ? m_panoCropW : img.width();
+        const int cropH = m_panoCropH > 0 ? m_panoCropH : img.height();
+
+        const int maxW = 8192;
+        const double scale = cropW > maxW ? double(maxW) / cropW : 1.0;
+        QImage piece = scale < 1.0
+            ? img.scaled(qMax(1, int(cropW * scale)), qMax(1, int(cropH * scale)),
+                         Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+            : img;
+
+        const float PI = 3.14159265358979f;
+        const float fovRad = 2.0f * PI * float(cropW) / float(fullW);
+        const float halfH  = PI * float(cropH) / float(fullW);
+
+        m_pano->setPanorama(piece.convertToFormat(QImage::Format_RGBA8888),
+                            PanoramaWidget::Projection::Cylindrical, halfH, fovRad);
+        m_stack->setCurrentWidget(m_pano);
+        m_pano->setFocus();
+        return;
+    }
 
     int fullW = m_panoFullW, fullH = m_panoFullH;
     int cropW = m_panoCropW, cropH = m_panoCropH, cropL = m_panoCropL, cropT = m_panoCropT;

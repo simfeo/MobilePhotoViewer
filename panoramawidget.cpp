@@ -21,17 +21,24 @@ PanoramaWidget::~PanoramaWidget()
     doneCurrent();
 }
 
-void PanoramaWidget::setPanorama(const QImage& equirect)
+void PanoramaWidget::setPanorama(const QImage& image, Projection proj,
+                                 float cylHalfHeight, float cylFovRad)
 {
-    m_pending = equirect;
+    m_pending = image;
+    m_projection = proj;
+    m_cylHalfH = cylHalfHeight;
+    m_cylFov = cylFovRad;
     m_yaw = 0.0f;
     m_pitch = 0.0f;
     m_fov = 75.0f;
     if (context() && isValid())
     {
         makeCurrent();
+        buildGeometry();
         m_texture.reset(new QOpenGLTexture(m_pending));
-        m_texture->setWrapMode(QOpenGLTexture::DirectionS, QOpenGLTexture::Repeat);
+        // A full sphere wraps horizontally; a cylinder arc is a bounded strip.
+        m_texture->setWrapMode(QOpenGLTexture::DirectionS,
+            proj == Projection::Cylindrical ? QOpenGLTexture::ClampToEdge : QOpenGLTexture::Repeat);
         m_texture->setWrapMode(QOpenGLTexture::DirectionT, QOpenGLTexture::ClampToEdge);
         m_texture->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
         m_texture->setMagnificationFilter(QOpenGLTexture::Linear);
@@ -41,19 +48,20 @@ void PanoramaWidget::setPanorama(const QImage& equirect)
     update();
 }
 
-void PanoramaWidget::buildSphere(int sectors, int stacks)
+namespace {
+constexpr float kPI = 3.14159265358979323846f;
+
+// Full inside-out UV sphere: position (xyz) + equirectangular uv.
+void fillSphere(std::vector<float>& verts, std::vector<GLuint>& idx, int sectors, int stacks)
 {
-    // Song Ho Ahn parametric UV sphere: position (xyz) + equirectangular uv.
-    const float PI = 3.14159265358979323846f;
-    std::vector<float> verts;   // x,y,z,u,v
     for (int i = 0; i <= stacks; ++i)
     {
-        const float stackAngle = PI / 2.0f - PI * i / stacks;   // +pi/2 .. -pi/2
+        const float stackAngle = kPI / 2.0f - kPI * i / stacks;   // +pi/2 .. -pi/2
         const float xy = std::cos(stackAngle);
         const float z  = std::sin(stackAngle);
         for (int j = 0; j <= sectors; ++j)
         {
-            const float sectorAngle = 2.0f * PI * j / sectors;
+            const float sectorAngle = 2.0f * kPI * j / sectors;
             verts.push_back(xy * std::cos(sectorAngle));
             verts.push_back(z);
             verts.push_back(xy * std::sin(sectorAngle));
@@ -61,7 +69,6 @@ void PanoramaWidget::buildSphere(int sectors, int stacks)
             verts.push_back(static_cast<float>(i) / stacks);    // v
         }
     }
-    std::vector<GLuint> idx;
     for (int i = 0; i < stacks; ++i)
     {
         int k1 = i * (sectors + 1);
@@ -72,11 +79,59 @@ void PanoramaWidget::buildSphere(int sectors, int stacks)
             if (i != stacks - 1) { idx.push_back(k1 + 1); idx.push_back(k2); idx.push_back(k2 + 1); }
         }
     }
+}
+
+// Cylinder arc of width 'fovRad' (radians) and total height 2*halfH, centred on
+// -Z so it faces the camera at yaw 0. Straight sides, so one stack is enough.
+void fillCylinderArc(std::vector<float>& verts, std::vector<GLuint>& idx,
+                     int sectors, float halfH, float fovRad)
+{
+    const int stacks = 1;
+    const float aMid = 3.0f * kPI / 2.0f;              // -Z, in front of the camera
+    const float a0 = aMid - fovRad / 2.0f;
+    for (int i = 0; i <= stacks; ++i)
+    {
+        const float v = static_cast<float>(i) / stacks;
+        const float y = halfH - 2.0f * halfH * v;      // top (v=0) .. bottom (v=1)
+        for (int j = 0; j <= sectors; ++j)
+        {
+            const float t = static_cast<float>(j) / sectors;
+            const float a = a0 + fovRad * t;
+            verts.push_back(std::cos(a));
+            verts.push_back(y);
+            verts.push_back(std::sin(a));
+            verts.push_back(t);   // u
+            verts.push_back(v);   // v
+        }
+    }
+    for (int i = 0; i < stacks; ++i)
+    {
+        int k1 = i * (sectors + 1);
+        int k2 = k1 + sectors + 1;
+        for (int j = 0; j < sectors; ++j, ++k1, ++k2)
+        {
+            idx.push_back(k1);     idx.push_back(k2); idx.push_back(k1 + 1);
+            idx.push_back(k1 + 1); idx.push_back(k2); idx.push_back(k2 + 1);
+        }
+    }
+}
+}   // namespace
+
+void PanoramaWidget::buildGeometry()
+{
+    std::vector<float> verts;   // x,y,z,u,v
+    std::vector<GLuint> idx;
+    if (m_projection == Projection::Cylindrical)
+        fillCylinderArc(verts, idx, 128, m_cylHalfH, m_cylFov);
+    else
+        fillSphere(verts, idx, 64, 32);
     m_indexCount = static_cast<int>(idx.size());
 
-    m_vbo.create(); m_vbo.bind();
+    if (!m_vbo.isCreated()) m_vbo.create();
+    m_vbo.bind();
     m_vbo.allocate(verts.data(), int(verts.size() * sizeof(float)));
-    m_ibo.create(); m_ibo.bind();
+    if (!m_ibo.isCreated()) m_ibo.create();
+    m_ibo.bind();
     m_ibo.allocate(idx.data(), int(idx.size() * sizeof(GLuint)));
 }
 
@@ -96,14 +151,14 @@ void PanoramaWidget::initializeGL()
         "void main(){ gl_FragColor = texture2D(tex, vUV); }\n");
     m_program.link();
 
-    buildSphere(64, 32);
+    buildGeometry();
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glEnable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);   // we view the sphere from the inside
+    glDisable(GL_CULL_FACE);   // we view the surface from the inside
 
     if (!m_pending.isNull())
-        setPanorama(m_pending);
+        setPanorama(m_pending, m_projection, m_cylHalfH, m_cylFov);
 }
 
 void PanoramaWidget::resizeGL(int, int)
