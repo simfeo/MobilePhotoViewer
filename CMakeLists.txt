@@ -126,6 +126,17 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     explorerselectiondelegate.h explorerselectiondelegate.cpp # taskbar/exe icon (Windows)
 )
 
+# macOS: the Dock/Finder icon comes from an .icns bundled into the .app and
+# named in Info.plist. setWindowIcon() (main.cpp) does NOT set it on macOS.
+if(APPLE)
+    set(MACOS_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/appicon.icns")
+    target_sources(MobilePhotoViewer PRIVATE ${MACOS_ICON})
+    set_source_files_properties(${MACOS_ICON} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources")
+    set_target_properties(MobilePhotoViewer PROPERTIES
+        MACOSX_BUNDLE_ICON_FILE "appicon.icns")
+endif()
+
 target_include_directories(MobilePhotoViewer PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"                                # <jpegmanager.h>, <Tools/...>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/TinyEXIF"          # <TinyEXIF.h>
