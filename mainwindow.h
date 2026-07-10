@@ -49,6 +49,7 @@ private slots:
     void onAbout();
     void onLicensing();
     void onShortcuts();
+    void onSettings();
 
 private:
     void setupBrowser();

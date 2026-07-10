@@ -222,7 +222,12 @@ void FolderBrowserPanel::applyThumbSize()
 
 void FolderBrowserPanel::zoomThumbnails(int steps)
 {
-    const int size = qBound(kThumbMin, m_thumbSize + steps * kThumbStep, kThumbMax);
+    setThumbSize(m_thumbSize + steps * kThumbStep);
+}
+
+void FolderBrowserPanel::setThumbSize(int px)
+{
+    const int size = qBound(kThumbMin, px, kThumbMax);
     if (size == m_thumbSize)
         return;
     m_thumbSize = size;

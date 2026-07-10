@@ -39,6 +39,8 @@
 #include "panoramawidget.h"
 #include "metadatapanel.h"
 #include "folderbrowserpanel.h"
+#include "settingsdialog.h"
+#include "appsettings.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -113,6 +115,7 @@ void MainWindow::setupBrowser()
     connect(m_browser, &FolderBrowserPanel::imageActivated, this, &MainWindow::SetImage);
     connect(m_browser, &FolderBrowserPanel::folderChanged, this, [this](const QString& dir) {
         setWindowTitle(dir);
+        AppSettings::setLastFolder(dir);   // remember for "start from last folder"
         showBrowseMode();
     });
     connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
@@ -127,6 +130,12 @@ void MainWindow::setupBrowser()
         else
             m_browser->zoomThumbnails(steps);
     });
+
+    // Apply saved preferences, then open the configured start folder. A folder or
+    // file passed on the command line (handled in main after show()) runs later and
+    // overrides this.
+    m_browser->setThumbSize(AppSettings::defaultThumbSize());
+    m_browser->openFolder(AppSettings::resolvedStartupFolder());
 
     showBrowseMode();
 }
@@ -156,6 +165,10 @@ void MainWindow::setupMenus()
     QMenu* editMenu = new QMenu(tr("Edit"), this);
     menuBar()->insertMenu(ui->menuHelp->menuAction(), editMenu);
     m_browser->fillEditMenu(editMenu);
+    editMenu->addSeparator();
+    QAction* settings = editMenu->addAction(tr("Settings..."), this, &MainWindow::onSettings);
+    settings->setShortcut(QKeySequence(QKeySequence::Preferences));   // Ctrl+, on macOS
+    settings->setMenuRole(QAction::PreferencesRole);                  // -> app menu on macOS
 
     // ---- View (inserted between File and Help) ----
     QMenu* viewMenu = new QMenu(tr("View"), this);
@@ -500,6 +513,14 @@ void MainWindow::stepImage(int delta)
     const int next = qBound(0, idx + delta, images.size() - 1);
     if (next != idx)
         SetImage(dir.absoluteFilePath(images[next]));
+}
+
+void MainWindow::onSettings()
+{
+    SettingsDialog dlg(this);
+    if (dlg.exec() == QDialog::Accepted)
+        // Apply the (possibly new) default thumbnail size to the live grid.
+        m_browser->setThumbSize(AppSettings::defaultThumbSize());
 }
 
 void MainWindow::onAbout()

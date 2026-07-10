@@ -13,6 +13,9 @@ int main(int argc, char* argv[])
     QImageReader::setAllocationLimit(0);
 
     QApplication a(argc, argv);
+    // Stable QSettings location (see SettingsDialog / AppSettings).
+    QCoreApplication::setOrganizationName("MobilePhotoViewer");
+    QCoreApplication::setApplicationName("MobilePhotoViewer");
     QApplication::setStyle(QStyleFactory::create("Fusion"));
     a.setWindowIcon(QIcon(":/appicon.png"));
     MainWindow w;

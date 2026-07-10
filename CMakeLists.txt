@@ -113,6 +113,8 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     folderbrowserpanel.cpp folderbrowserpanel.h
     locationbar.cpp       locationbar.h
     gridcontextmenu.cpp   gridcontextmenu.h
+    settingsdialog.cpp    settingsdialog.h
+    appsettings.cpp       appsettings.h
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h

@@ -33,6 +33,15 @@ public:
     QWidget*  gridWidget()       const;   // for the central stack
     QToolBar* toolBar()          const;   // navigation + sort toolbar (top of window)
 
+    // Thumbnail display size (icon side, px): allowed range and step. Shared with
+    // the settings dialog so its control offers exactly the reachable sizes.
+    static constexpr int kThumbMin  = 64;
+    static constexpr int kThumbMax  = 128 * 3;   // 384
+    static constexpr int kThumbStep = 32;
+    static constexpr int kThumbDefault = 128;
+
+    void setThumbSize(int px);            // set display size directly (clamped)
+
     void fillEditMenu(QMenu* menu);       // add the file-operation actions to a menu
 
     const QStringList& supportedFormats() const { return m_supportedFormats; }
@@ -85,16 +94,12 @@ private:
     QFileInfoList sortedEntries(const QString& dir) const;
     void updateNavActions();                           // enable/disable back/fwd/up
 
-    static constexpr int kThumbMin  = 64;
-    static constexpr int kThumbMax  = 128 * 3;   // 384
-    static constexpr int kThumbStep = 32;
-
     QStringList        m_supportedFormats;
     QListView*         m_grid;
     ThumbnailModel*    m_thumbs;
     QTreeView*         m_folderTree;
     QFileSystemModel*  m_dirModel;
-    int                m_thumbSize  = 128;   // current display size (icon side, px)
+    int                m_thumbSize  = kThumbDefault;   // current display size (icon side, px)
     double             m_pinchAccum = 0.0;   // accumulated macOS pinch magnitude
 
     // Navigation toolbar + history
