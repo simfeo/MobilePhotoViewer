@@ -10,6 +10,8 @@
 #include <QUrl>
 #include <QFile>
 
+#include <heifmanager.h>
+
 ThumbnailModel::ThumbnailModel(QObject* parent)
     : QAbstractListModel(parent)
     , m_pool(new QThreadPool(this))
@@ -164,15 +166,33 @@ void ThumbnailModel::requestThumbnail(const QString& path) const
     ThumbnailModel* self = const_cast<ThumbnailModel*>(this);
     const int box = kThumb;
     m_pool->start([self, path, box]() {
-        QImageReader reader(path);
-        reader.setAutoTransform(true);
-        QSize s = reader.size();
-        if (s.isValid())
+        QImage img;
+        const QString lower = path.toLower();
+        if (lower.endsWith("heic") || lower.endsWith("heif"))
         {
-            s.scale(box, box, Qt::KeepAspectRatio);
-            reader.setScaledSize(s);
+            // QImageReader can't decode HEIF here (no Qt plugin) -- use our own
+            // libheif-based decoder, then scale down to the thumbnail box.
+            HeifManager m(path);
+            if (m.getWidth() && m.getHeight())
+            {
+                const QImage full(reinterpret_cast<const uchar*>(m.getDecodedImage().get()),
+                                  static_cast<int>(m.getWidth()), static_cast<int>(m.getHeight()),
+                                  QImage::Format_RGBA8888);
+                img = full.scaled(box, box, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
         }
-        QImage img = reader.read();
+        else
+        {
+            QImageReader reader(path);
+            reader.setAutoTransform(true);
+            QSize s = reader.size();
+            if (s.isValid())
+            {
+                s.scale(box, box, Qt::KeepAspectRatio);
+                reader.setScaledSize(s);
+            }
+            img = reader.read();
+        }
         QMetaObject::invokeMethod(self, "onThumbnailReady", Qt::QueuedConnection,
                                   Q_ARG(QString, path), Q_ARG(QImage, img));
     });

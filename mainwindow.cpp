@@ -321,13 +321,17 @@ bool MainWindow::detectPanorama(const QString& path)
     f.close();
 
     TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(head.constData()), head.size());
-    const bool cylindrical =
+    const bool equirect = exif.GPano.isEquirectangular();
+    const bool gpanoCyl =
         QString::fromStdString(exif.GPano.ProjectionType).compare("cylindrical", Qt::CaseInsensitive) == 0;
-    if (!exif.GPano.isEquirectangular() && !cylindrical)
+    // Google/Pixel sweep panoramas carry no GPano geometry -- just a GCamera
+    // special-type marker. Treat those as cylindrical with heuristic geometry.
+    const bool specialPano = head.contains("SpecialType-PANORAMA");
+    if (!equirect && !gpanoCyl && !specialPano)
         return false;
 
     m_isPano     = true;
-    m_panoCylindrical = cylindrical;
+    m_panoCylindrical = !equirect && (gpanoCyl || specialPano);
     m_panoFullW  = static_cast<int>(exif.GPano.FullPanoWidthPixels);
     m_panoFullH  = static_cast<int>(exif.GPano.FullPanoHeightPixels);
     m_panoCropW  = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
@@ -351,9 +355,6 @@ void MainWindow::showPanorama()
     if (m_panoCylindrical)
     {
         // Cylindrical panorama: texture the crop straight onto a cylinder arc.
-        // FullPanoWidthPixels spans 360 deg, so the crop covers width/full of it;
-        // square-pixel geometry then fixes the vertical extent (no FullPanoHeight).
-        const int fullW = m_panoFullW > 0 ? m_panoFullW : img.width();
         const int cropW = m_panoCropW > 0 ? m_panoCropW : img.width();
         const int cropH = m_panoCropH > 0 ? m_panoCropH : img.height();
 
@@ -365,8 +366,27 @@ void MainWindow::showPanorama()
             : img;
 
         const float PI = 3.14159265358979f;
-        const float fovRad = 2.0f * PI * float(cropW) / float(fullW);
-        const float halfH  = PI * float(cropH) / float(fullW);
+        float fovRad, halfH;
+        if (m_panoFullW > 0)
+        {
+            // GPano geometry: FullPanoWidthPixels spans 360 deg, so the crop covers
+            // width/full of it; square pixels then fix the vertical extent.
+            fovRad = 2.0f * PI * float(cropW) / float(m_panoFullW);
+            halfH  = PI * float(cropH) / float(m_panoFullW);
+        }
+        else
+        {
+            // No projection metadata (e.g. Pixel SpecialType panorama): assume a
+            // cylindrical sweep with ~50 deg vertical FoV and derive the horizontal
+            // FoV from the image aspect (square pixels), capped at a full wrap.
+            halfH  = 0.466f;   // tan(25 deg)
+            fovRad = 2.0f * halfH * float(cropW) / float(cropH);
+            if (fovRad > 2.0f * PI)
+            {
+                fovRad = 2.0f * PI;
+                halfH  = fovRad * float(cropH) / (2.0f * float(cropW));
+            }
+        }
 
         m_pano->setPanorama(piece.convertToFormat(QImage::Format_RGBA8888),
                             PanoramaWidget::Projection::Cylindrical, halfH, fovRad);
@@ -425,11 +445,12 @@ void MainWindow::SetImage(const QString& imgPath)
     m_currentPath = imgPath;
 
     ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
-    if (imgPath.endsWith("jpeg") || imgPath.endsWith("jpg"))
+    const QString lower = imgPath.toLower();   // extensions may be upper-case (.HEIC, .JPG)
+    if (lower.endsWith("jpeg") || lower.endsWith("jpg"))
     {
         m_imageManager.reset(new JpegManager(imgPath));
     }
-    else if (imgPath.endsWith("heic") || imgPath.endsWith("heif"))
+    else if (lower.endsWith("heic") || lower.endsWith("heif"))
     {
         m_imageManager.reset(new HeifManager(imgPath));
 
