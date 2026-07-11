@@ -114,6 +114,7 @@ private:
     QString     m_currentPath;
     SortKey     m_sortKey       = SortKey::Name;
     bool        m_sortDescending = false;
+    QString     m_filter;                  // substring filter on file name/extension
 
     // File operations (also shown in the Edit menu and the grid context menu)
     QAction* m_cutAct           = nullptr;

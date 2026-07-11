@@ -310,6 +310,18 @@ void FolderBrowserPanel::buildToolBar()
     QAction* zoomIn = m_toolBar->addAction(makeZoomIcon(true, fg), tr("Zoom In"));
     connect(zoomIn, &QAction::triggered, this, [this] { emit zoomRequested(+1); });
 
+    // Filter: show only files whose name/extension contains the typed text.
+    m_toolBar->addSeparator();
+    QLineEdit* filterEdit = new QLineEdit;
+    filterEdit->setClearButtonEnabled(true);
+    filterEdit->setPlaceholderText(tr("Filter"));
+    filterEdit->setMaximumWidth(160);
+    connect(filterEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
+        m_filter = text.trimmed();
+        reloadEntries();
+    });
+    m_toolBar->addWidget(filterEdit);
+
     // Sort menu: an exclusive key, plus an exclusive ascending/descending toggle.
     QToolButton* sortBtn = new QToolButton;
     sortBtn->setText(tr("Sort"));
@@ -362,6 +374,17 @@ QFileInfoList FolderBrowserPanel::sortedEntries(const QString& dir) const
     QDir d(dir);
     QFileInfoList folders = d.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList files   = d.entryInfoList(m_supportedFormats, QDir::Files);
+
+    // Filter: keep only images whose file name (extension included) contains the
+    // typed text, case-insensitively. Folders stay visible so navigation still works.
+    if (!m_filter.isEmpty())
+    {
+        QFileInfoList kept;
+        for (const QFileInfo& fi : files)
+            if (fi.fileName().contains(m_filter, Qt::CaseInsensitive))
+                kept.append(fi);
+        files = kept;
+    }
 
     const auto byName = [](const QFileInfo& a, const QFileInfo& b) {
         return QString::compare(a.fileName(), b.fileName(), Qt::CaseInsensitive) < 0;
