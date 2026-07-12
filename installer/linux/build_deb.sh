@@ -38,8 +38,13 @@ convert "resources/appicon.png" -resize 256x256 "$ICON256"
 APPDIR="$REPO_ROOT/AppDir"
 rm -rf "$APPDIR"
 install -Dm755 "build/${BINARY}"                              "$APPDIR/usr/bin/${BINARY}"
-install -Dm644 "installer/linux/${PKG}.desktop"              "$APPDIR/usr/share/applications/${PKG}.desktop"
 install -Dm644 "$ICON256"                                    "$APPDIR/usr/share/icons/hicolor/256x256/apps/${PKG}.png"
+# linuxdeploy needs the desktop Exec to name the bundled binary (not the final
+# /opt path) so it can wire up the AppDir. The real menu entry, with the /opt
+# path, is installed separately into the .deb tree further down.
+install -d "$APPDIR/usr/share/applications"
+sed "s|^Exec=.*|Exec=${BINARY} %f|" "installer/linux/${PKG}.desktop" \
+    > "$APPDIR/usr/share/applications/${PKG}.desktop"
 
 echo "==> Fetching linuxdeploy + Qt plugin"
 TOOLS="$REPO_ROOT/.linuxdeploy"
