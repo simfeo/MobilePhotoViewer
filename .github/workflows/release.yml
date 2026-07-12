@@ -1,0 +1,228 @@
+name: Release
+
+# Build a Windows installer (.exe) and a signed+notarized macOS .dmg, then
+# attach both to a GitHub Release. Triggered by pushing a version tag, e.g.
+#   git tag v1.0.0 && git push origin v1.0.0
+# Can also be run manually (workflow_dispatch) for a dry run without a release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for a manual test build (no release published)"
+        default: "0.0.0-test"
+
+env:
+  QT_VERSION: "6.8.1"
+
+jobs:
+  # --------------------------------------------------------------------------
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtmultimedia
+          cache: true
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DAPP_VERSION=${{ steps.ver.outputs.version }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: cmd
+        run: >
+          "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+          /DMyAppVersion=${{ steps.ver.outputs.version }}
+          "/DSourceDir=%CD%\build"
+          installer\windows\installer.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: installer/windows/Output/*.exe
+
+  # --------------------------------------------------------------------------
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Derive version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtmultimedia
+          cache: true
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DAPP_VERSION=${{ steps.ver.outputs.version }}
+
+      - name: Build (runs macdeployqt via POST_BUILD)
+        run: cmake --build build
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+        run: |
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode > cert.p12
+          security create-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PWD" build.keychain
+          rm cert.p12
+
+      - name: Codesign (hardened runtime)
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: |
+          APP="build/MobilePhotoViewer.app"
+          codesign --force --deep --options runtime --timestamp \
+            --entitlements installer/macos/entitlements.plist \
+            --sign "$SIGN_IDENTITY" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Create DMG
+        run: |
+          DMG="MobilePhotoViewer-${{ steps.ver.outputs.version }}-macos.dmg"
+          mkdir -p dmg_staging
+          cp -R build/MobilePhotoViewer.app dmg_staging/
+          ln -s /Applications dmg_staging/Applications
+          hdiutil create -volname "MobilePhotoViewer" -srcfolder dmg_staging \
+            -ov -format ULFO "$DMG"
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+
+      - name: Sign DMG
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: codesign --force --sign "$SIGN_IDENTITY" --timestamp "$DMG"
+
+      - name: Notarize & staple
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple "$DMG"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: MobilePhotoViewer-*.dmg
+
+  # --------------------------------------------------------------------------
+  linux:
+    runs-on: ubuntu-22.04   # older base libs => .deb runs on more distros
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Derive version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build file patchelf desktop-file-utils \
+            libgl1-mesa-dev libxkbcommon-dev libxcb-cursor0
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtmultimedia
+          cache: true
+
+      - name: Build .deb
+        run: |
+          chmod +x installer/linux/build_deb.sh
+          ./installer/linux/build_deb.sh "${{ steps.ver.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: mobilephotoviewer_*.deb
+
+  # --------------------------------------------------------------------------
+  release:
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/windows-installer/*.exe
+            artifacts/macos-dmg/*.dmg
+            artifacts/linux-deb/*.deb
+          generate_release_notes: true

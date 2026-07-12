@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MobilePhotoViewer
+GenericName=Photo Viewer
+Comment=View phone photos including HEIC, motion photos and panoramas
+Exec=/opt/mobilephotoviewer/usr/bin/MobilePhotoViewer %f
+Icon=mobilephotoviewer
+Terminal=false
+Categories=Graphics;Viewer;Photography;
+MimeType=image/jpeg;image/png;image/heif;image/heic;

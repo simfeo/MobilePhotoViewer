@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.21)  # 3.21+ for $<TARGET_RUNTIME_DLLS:...>
 
-project(MobilePhotoViewer LANGUAGES C CXX)
+# Version: defaults to 1.0.0 for local builds; CI passes -DAPP_VERSION=<tag>.
+set(APP_VERSION "1.0.0" CACHE STRING "Application version (major.minor.patch)")
+project(MobilePhotoViewer
+    VERSION ${APP_VERSION}
+    LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -125,7 +129,12 @@ if(APPLE)
     set_source_files_properties(${MACOS_ICON} PROPERTIES
         MACOSX_PACKAGE_LOCATION "Resources")
     set_target_properties(MobilePhotoViewer PROPERTIES
-        MACOSX_BUNDLE_ICON_FILE "appicon.icns")
+        MACOSX_BUNDLE_ICON_FILE "appicon.icns"
+        # Notarization requires a stable bundle identifier and a hardened-runtime
+        # signature (applied later by the CI codesign step).
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.simfeo.MobilePhotoViewer"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
 endif()
 
 target_include_directories(MobilePhotoViewer PRIVATE
