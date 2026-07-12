@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>  // std::ifstream
 #include <vector>
+#include <algorithm>  // std::ranges::copy_n
 
 //#include <heifreader.h>
 //#include <Heif.h>
@@ -123,7 +124,7 @@ void HeifManager::manageHeif()
         if (img_plane)
         {
             m_decodedImage.reset(new uint8_t[m_height * r_stride], [](uint8_t* p) { delete[] p; });
-            memcpy(m_decodedImage.get(), img_plane, m_height * r_stride);
+            std::ranges::copy_n(img_plane, m_height * r_stride, m_decodedImage.get());
         }
 
     }

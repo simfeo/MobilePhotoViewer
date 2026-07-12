@@ -74,7 +74,7 @@ jobs:
 
   # --------------------------------------------------------------------------
   macos:
-    runs-on: macos-latest
+    runs-on: macos-14   # Apple Silicon (arm64)
     steps:
       - uses: actions/checkout@v4
         with:

@@ -5,7 +5,9 @@
 
 #include <iostream>
 #include <fstream>
-#include <cstring>
+#include <string_view>
+#include <span>
+#include <algorithm>  // std::ranges::equal
 
 
 JpegManager::JpegManager(const QString& imgPath)
@@ -23,6 +25,13 @@ void JpegManager::manageJpeg()
     std::vector<uint8_t> data(length);
     imgFile->read((char*)data.data(), length);
 
+    // True if the 4-byte magic tag sits at data[pos..pos+len), bounds-checked.
+    auto magicAt = [&data](size_t pos, std::string_view tag) {
+        return pos + tag.size() <= data.size()
+            && std::ranges::equal(std::span(data.data() + pos, tag.size()), tag,
+                                  [](uint8_t a, char b) { return a == static_cast<uint8_t>(b); });
+    };
+
     m_imageEXIF = TinyEXIF::EXIFInfo(data.data(), length);
     if (m_imageEXIF.Fields)
     {
@@ -38,7 +47,7 @@ void JpegManager::manageJpeg()
         if (m_imageEXIF.MicroVideo.HasMicroVideo && vlen > 8 && vlen <= data.size())
         {
             const size_t offset = data.size() - static_cast<size_t>(vlen);
-            if (std::memcmp(&data[offset + 4], "ftyp", 4) == 0)   // real ISO-BMFF clip
+            if (magicAt(offset + 4, "ftyp"))   // real ISO-BMFF clip
             {
                 qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;
                 m_memoryVideo.reset(new QBuffer());
@@ -57,7 +66,7 @@ void JpegManager::manageJpeg()
     // The video is the block whose data begins with an ISO-BMFF 'ftyp' box -- that
     // covers MotionPhoto / Motion-Panorama and mp4 / 3gp alike, without depending on
     // the (varying) block name.
-    if (!m_memoryVideo && data.size() >= 12 && std::memcmp(&data[data.size() - 4], "SEFT", 4) == 0)
+    if (!m_memoryVideo && data.size() >= 12 && magicAt(data.size() - 4, "SEFT"))
     {
         const size_t n = data.size();
         auto u32 = [&data](size_t at) {
@@ -68,7 +77,7 @@ void JpegManager::manageJpeg()
         if (static_cast<uint64_t>(dirLen) + 8 <= n)
         {
             const size_t sefh = n - 8 - dirLen;
-            if (std::memcmp(&data[sefh], "SEFH", 4) == 0)
+            if (magicAt(sefh, "SEFH"))
             {
                 const uint32_t count = u32(sefh + 8);
                 const size_t dirEnd = n - 8;
@@ -87,7 +96,7 @@ void JpegManager::manageJpeg()
                     const size_t videoStart = blockStart + 8 + nameLen;
                     if (videoStart + 8 > blockEnd)
                         continue;
-                    if (std::memcmp(&data[videoStart + 4], "ftyp", 4) == 0)  // ISO-BMFF video
+                    if (magicAt(videoStart + 4, "ftyp"))  // ISO-BMFF video
                     {
                         qDebug() << "Samsung SEF motion photo: video bytes [" << videoStart << ".." << blockEnd << "]";
                         m_memoryVideo.reset(new QBuffer());

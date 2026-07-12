@@ -1,5 +1,7 @@
 #include "ramfile.h"
 
+#include <algorithm>  // std::ranges::copy_n
+
 namespace Utils
 {
     RamFile::RamFile(std::vector<uint8_t>& invec)
@@ -30,7 +32,7 @@ namespace Utils
             {
                 bytesRead = m_length - m_currentPos;
             }
-            memcpy(buf, m_buffer + m_currentPos, bytesRead);
+            std::ranges::copy_n(m_buffer + m_currentPos, bytesRead, buf);
             m_currentPos += buf_size;
             return static_cast<int>(bytesRead);
         }

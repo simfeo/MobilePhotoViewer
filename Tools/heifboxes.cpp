@@ -193,11 +193,7 @@ void SefdBox::fillPropertyData(std::string& pdata)
         return;
     }
 
-    if (tmp_data.size())
-    {
-        pdata.resize(tmp_data.size());
-        memcpy(&pdata[0], &tmp_data[0], tmp_data.size());
-    }
+    pdata.assign(tmp_data.begin(), tmp_data.end());
 }
 
 void SefdBox::fillPropertyByType(std::string& ptype)

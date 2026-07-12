@@ -3,7 +3,9 @@
 #include <Tools/ramfile.h>
 
 #include <string>
-#include <cstring>
+#include <string_view>
+#include <span>
+#include <algorithm>  // std::ranges::equal
 
 #include <QDebug>
 
@@ -282,7 +284,7 @@ HeifHelpers::OperationResult HeifReader::handleMpvd(std::ifstream& fstream)
     char magic[8] = { 0 };
     fstream.seekg(payloadOffset);
     fstream.read(magic, sizeof(magic));
-    if (fstream.good() && payloadSize >= 8 && std::memcmp(magic + 4, "ftyp", 4) == 0)
+    if (fstream.good() && payloadSize >= 8 && std::ranges::equal(std::span(magic + 4, 4), std::string_view("ftyp")))
     {
         m_mpvdOffset = static_cast<size_t>(payloadOffset);
         m_mpvdSize = static_cast<size_t>(payloadSize);

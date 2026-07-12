@@ -12,13 +12,34 @@ project(MobilePhotoViewer
     VERSION ${APP_VERSION_NUMERIC}
     LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --------------------------------------------------------------------------
 # Qt
 # --------------------------------------------------------------------------
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets)
+
+# macOS 14+ SDKs removed the long-deprecated AGL framework, but an OpenGL CMake
+# config still lists it as a link dependency, breaking the link on Apple Silicon
+# ("ld: framework 'AGL' not found"). The app uses modern QOpenGLWidget
+# (OpenGL.framework), not AGL, so strip the stale reference from the imported
+# targets that may carry it. Safe no-op on targets/platforms that don't.
+if(APPLE)
+    foreach(_agl_target
+            OpenGL::GL Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Gui
+            Qt6::GuiPrivate Qt6::OpenGLPrivate)
+        if(TARGET ${_agl_target})
+            foreach(_prop INTERFACE_LINK_LIBRARIES IMPORTED_LINK_INTERFACE_LIBRARIES)
+                get_target_property(_libs ${_agl_target} ${_prop})
+                if(_libs)
+                    list(FILTER _libs EXCLUDE REGEX "(-framework )?AGL(\\.framework)?$")
+                    set_target_properties(${_agl_target} PROPERTIES ${_prop} "${_libs}")
+                endif()
+            endforeach()
+        endif()
+    endforeach()
+endif()
 # qt_standard_project_setup() is called later, after the third-party
 # dependencies are added, so AUTOMOC/AUTOUIC don't needlessly scan them.
 
