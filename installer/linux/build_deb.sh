@@ -29,12 +29,17 @@ echo "==> Configuring & building (version ${VERSION})"
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAPP_VERSION="${VERSION}"
 cmake --build build
 
+# The source icon is 1024x1024, which is not a valid hicolor size (linuxdeploy
+# rejects it). Resize to 256x256 (matches the target directory below).
+ICON256="$REPO_ROOT/build/${PKG}-256.png"
+convert "resources/appicon.png" -resize 256x256 "$ICON256"
+
 # ---- assemble an AppDir and let linuxdeploy bundle Qt ---------------------
 APPDIR="$REPO_ROOT/AppDir"
 rm -rf "$APPDIR"
 install -Dm755 "build/${BINARY}"                              "$APPDIR/usr/bin/${BINARY}"
 install -Dm644 "installer/linux/${PKG}.desktop"              "$APPDIR/usr/share/applications/${PKG}.desktop"
-install -Dm644 "resources/appicon.png"                       "$APPDIR/usr/share/icons/hicolor/256x256/apps/${PKG}.png"
+install -Dm644 "$ICON256"                                    "$APPDIR/usr/share/icons/hicolor/256x256/apps/${PKG}.png"
 
 echo "==> Fetching linuxdeploy + Qt plugin"
 TOOLS="$REPO_ROOT/.linuxdeploy"
@@ -72,7 +77,7 @@ cp -a "$APPDIR/usr" "$PKGROOT/opt/${PKG}/"
 # System-visible entry points.
 ln -s "/opt/${PKG}/usr/bin/${BINARY}" "$PKGROOT/usr/bin/${PKG}"
 cp "installer/linux/${PKG}.desktop" "$PKGROOT/usr/share/applications/${PKG}.desktop"
-cp "resources/appicon.png" "$PKGROOT/usr/share/icons/hicolor/256x256/apps/${PKG}.png"
+cp "$ICON256" "$PKGROOT/usr/share/icons/hicolor/256x256/apps/${PKG}.png"
 
 INSTALLED_KB=$(du -sk "$PKGROOT" | cut -f1)
 

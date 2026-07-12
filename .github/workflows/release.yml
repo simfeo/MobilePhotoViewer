@@ -56,6 +56,18 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      - name: Assemble clean install tree
+        shell: bash
+        run: |
+          # Package only the app + its runtime, not the whole CMake build tree.
+          # POST_BUILD already gathered every runtime DLL (Qt, heif, libde265,
+          # ffmpeg, opengl) next to the exe; copy those, then let windeployqt add
+          # the Qt plugin subfolders (platforms/, imageformats/, ...).
+          mkdir -p dist
+          cp build/MobilePhotoViewer.exe dist/
+          cp build/*.dll dist/
+          windeployqt --release --no-translations --no-compiler-runtime dist/MobilePhotoViewer.exe
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
@@ -64,7 +76,7 @@ jobs:
         run: >
           "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
           /DMyAppVersion=${{ steps.ver.outputs.version }}
-          "/DSourceDir=%CD%\build"
+          "/DSourceDir=%CD%\dist"
           installer\windows\installer.iss
 
       - uses: actions/upload-artifact@v4
@@ -186,7 +198,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build file patchelf desktop-file-utils \
-            libgl1-mesa-dev libxkbcommon-dev libxcb-cursor0
+            imagemagick libgl1-mesa-dev libxkbcommon-dev libxcb-cursor0
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
