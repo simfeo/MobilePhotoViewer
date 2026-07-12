@@ -2,8 +2,14 @@ cmake_minimum_required(VERSION 3.21)  # 3.21+ for $<TARGET_RUNTIME_DLLS:...>
 
 # Version: defaults to 1.0.0 for local builds; CI passes -DAPP_VERSION=<tag>.
 set(APP_VERSION "1.0.0" CACHE STRING "Application version (major.minor.patch)")
+# project() accepts only a strictly numeric version, so strip any pre-release
+# suffix (e.g. "1.0.0-rc1", "0.0.0-test") down to the leading numeric part.
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" APP_VERSION_NUMERIC "${APP_VERSION}")
+if(NOT APP_VERSION_NUMERIC)
+    set(APP_VERSION_NUMERIC "0.0.0")
+endif()
 project(MobilePhotoViewer
-    VERSION ${APP_VERSION}
+    VERSION ${APP_VERSION_NUMERIC}
     LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
