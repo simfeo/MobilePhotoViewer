@@ -107,6 +107,13 @@ void LocationBar::showCrumbs()
     m_stack->setCurrentWidget(m_crumbPage);
 }
 
+void LocationBar::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        m_edit->setPlaceholderText(tr("Location"));
+    QWidget::changeEvent(event);
+}
+
 bool LocationBar::eventFilter(QObject* watched, QEvent* event)
 {
     if (watched == m_crumbPage && event->type() == QEvent::MouseButtonPress)

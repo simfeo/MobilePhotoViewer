@@ -5,6 +5,7 @@
 #include <QString>
 #include <QByteArray>
 #include <Tools/imagewithvideobase.h>
+#include "i18n.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -43,6 +44,7 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void closeEvent(QCloseEvent *event) override;   // persist window layout
+    void changeEvent(QEvent *event) override;       // QEvent::LanguageChange -> retranslate
 
 private slots:
     void onOpenFile();
@@ -68,6 +70,7 @@ private:
     Ui::MainWindow*     ui;
     QString             m_currentPath;
     QByteArray          m_defaultState;   // dock/toolbar layout as first built
+    Retranslator        m_i18n;           // re-applies menu/dock texts on language change
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
 
     // browsing mode

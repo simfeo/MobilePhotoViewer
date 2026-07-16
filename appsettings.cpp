@@ -4,6 +4,7 @@
 #include <QSettings>
 #include <QDir>
 #include <QFileInfo>
+#include <QObject>
 
 namespace
 {
@@ -11,6 +12,7 @@ constexpr auto kUseLastFolder = "startup/useLastFolder";
 constexpr auto kStartFolder   = "startup/startFolder";
 constexpr auto kLastFolder    = "startup/lastFolder";
 constexpr auto kThumbSize     = "thumbnails/defaultSize";
+constexpr auto kLanguage      = "ui/language";
 constexpr auto kWinGeometry   = "window/geometry";
 constexpr auto kWinState      = "window/state";
 
@@ -61,6 +63,27 @@ int defaultThumbSize()
 void setDefaultThumbSize(int px)
 {
     QSettings().setValue(kThumbSize, px);
+}
+
+QString language()
+{
+    return QSettings().value(kLanguage, QString()).toString();
+}
+
+void setLanguage(const QString& code)
+{
+    QSettings().setValue(kLanguage, code);
+}
+
+QList<QPair<QString, QString>> availableLanguages()
+{
+    // Native names deliberately untranslated: a language is listed in its own
+    // language, so it stays recognisable whatever the current UI language is.
+    return {
+        { QString(), QObject::tr("System default") },
+        { "en",      QStringLiteral("English") },
+        { "uk",      QStringLiteral("Українська") },
+    };
 }
 
 QString resolvedStartupFolder()

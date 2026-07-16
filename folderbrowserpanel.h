@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QFileInfoList>
 
+#include "i18n.h"
+
 class QWidget;
 class QListView;
 class QTreeView;
@@ -66,6 +68,9 @@ signals:
 protected:
     // Ctrl+wheel (Windows/Linux) and trackpad pinch (macOS) zoom on the grid.
     bool eventFilter(QObject* watched, QEvent* event) override;
+    // QEvent::LanguageChange: QWidget forwards it to every QObject child, so this
+    // panel is reached even though it is not a widget itself.
+    bool event(QEvent* event) override;
 
 private slots:
     void onFolderSelected(const QModelIndex& index);
@@ -99,6 +104,7 @@ private:
     QFileInfoList sortedEntries(const QString& dir) const;
     void updateNavActions();                           // enable/disable back/fwd/up
 
+    Retranslator       m_i18n;   // re-applies toolbar/menu texts on language change
     QStringList        m_supportedFormats;
     QListView*         m_grid;
     ThumbnailModel*    m_thumbs;

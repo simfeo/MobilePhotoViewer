@@ -129,7 +129,10 @@ void MainWindow::setupBrowser()
     setCentralWidget(central);
 
     // Folders dock (left, top). Object names are required for saveState/restoreState.
-    QDockWidget* foldersDock = new QDockWidget(tr("Folders"), this);
+    // A dock's toggleViewAction() text tracks its windowTitle, so the View menu
+    // entries follow along without being registered separately.
+    QDockWidget* foldersDock = new QDockWidget(this);
+    m_i18n.add([this, foldersDock]{ foldersDock->setWindowTitle(tr("Folders")); });
     foldersDock->setObjectName("FoldersDock");
     foldersDock->setWidget(m_browser->folderTreeWidget());
     addDockWidget(Qt::LeftDockWidgetArea, foldersDock);
@@ -138,14 +141,16 @@ void MainWindow::setupBrowser()
     m_info = new MetadataPanel(this);
 
     // Preview dock (left, below folders)
-    QDockWidget* previewDock = new QDockWidget(tr("Preview"), this);
+    QDockWidget* previewDock = new QDockWidget(this);
+    m_i18n.add([this, previewDock]{ previewDock->setWindowTitle(tr("Preview")); });
     previewDock->setObjectName("PreviewDock");
     previewDock->setWidget(m_info->previewWidget());
     addDockWidget(Qt::LeftDockWidgetArea, previewDock);
     splitDockWidget(foldersDock, previewDock, Qt::Vertical);
 
     // Metadata dock (right)
-    QDockWidget* metaDock = new QDockWidget(tr("Metadata"), this);
+    QDockWidget* metaDock = new QDockWidget(this);
+    m_i18n.add([this, metaDock]{ metaDock->setWindowTitle(tr("Metadata")); });
     metaDock->setObjectName("MetadataDock");
     metaDock->setWidget(m_info->metadataWidget());
     addDockWidget(Qt::RightDockWidgetArea, metaDock);
@@ -183,17 +188,30 @@ void MainWindow::setupBrowser()
 
 void MainWindow::setupMenus()
 {
+    // Strings are registered with m_i18n so they can be re-applied live when the
+    // language changes (see changeEvent). The .ui-defined menus and actions are
+    // included: retranslateUi() is deliberately not used, since it would also
+    // reset the window title (which holds the current file path) and the play
+    // button's glyph.
     // ---- File ----
-    ui->actionOpen->setText(tr("Open File..."));
+    m_i18n.add([this]{ ui->menuFile->setTitle(tr("File")); });
+    m_i18n.add([this]{ ui->menuHelp->setTitle(tr("Help")); });
+    m_i18n.add([this]{ ui->actionExit->setText(tr("Exit")); });
+    m_i18n.add([this]{ ui->actionAbout->setText(tr("About")); });
+    m_i18n.add([this]{ ui->actionLicensing->setText(tr("Licensing")); });
+
+    m_i18n.add([this]{ ui->actionOpen->setText(tr("Open File...")); });
     ui->actionOpen->setShortcut(QKeySequence("Ctrl+O"));
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::onOpenFile);
 
-    QAction* openFolder = new QAction(tr("Open Folder..."), this);
+    QAction* openFolder = new QAction(this);
+    m_i18n.add([this, openFolder]{ openFolder->setText(tr("Open Folder...")); });
     openFolder->setShortcut(QKeySequence("Ctrl+Shift+O"));
     ui->menuFile->insertAction(ui->actionExit, openFolder);
     connect(openFolder, &QAction::triggered, this, &MainWindow::onOpenFolder);
 
-    m_saveVideoAction = new QAction(tr("Save Video As..."), this);
+    m_saveVideoAction = new QAction(this);
+    m_i18n.add([this]{ m_saveVideoAction->setText(tr("Save Video As...")); });
     m_saveVideoAction->setShortcut(QKeySequence("Ctrl+S"));
     m_saveVideoAction->setEnabled(false);   // enabled only for motion photos
     ui->menuFile->insertAction(ui->actionExit, m_saveVideoAction);
@@ -203,30 +221,37 @@ void MainWindow::setupMenus()
     ui->actionExit->setShortcut(QKeySequence("Ctrl+Q"));   // already wired to close() in the .ui
 
     // ---- Edit (file operations, inserted between File and Help) ----
-    QMenu* editMenu = new QMenu(tr("Edit"), this);
+    QMenu* editMenu = new QMenu(this);
+    m_i18n.add([this, editMenu]{ editMenu->setTitle(tr("Edit")); });
     menuBar()->insertMenu(ui->menuHelp->menuAction(), editMenu);
     m_browser->fillEditMenu(editMenu);
     editMenu->addSeparator();
-    QAction* settings = editMenu->addAction(tr("Settings..."), this, &MainWindow::onSettings);
+    QAction* settings = editMenu->addAction(QString(), this, &MainWindow::onSettings);
+    m_i18n.add([this, settings]{ settings->setText(tr("Settings...")); });
     settings->setShortcut(QKeySequence(QKeySequence::Preferences));   // Ctrl+, on macOS
     settings->setMenuRole(QAction::PreferencesRole);                  // -> app menu on macOS
 
     // ---- View (inserted between File and Help) ----
-    QMenu* viewMenu = new QMenu(tr("View"), this);
+    QMenu* viewMenu = new QMenu(this);
+    m_i18n.add([this, viewMenu]{ viewMenu->setTitle(tr("View")); });
     menuBar()->insertMenu(ui->menuHelp->menuAction(), viewMenu);
 
     // Deliberately no setShortcut(): Enter / Esc go back to the thumbnails, but
     // both are handled in keyPressEvent(). As action shortcuts they would be
     // window-wide -- Enter would be stolen from the grid (where it opens an
     // image), and Esc would bypass the "leave full screen first" check.
-    viewMenu->addAction(tr("Thumbnails"), this, &MainWindow::showBrowseMode);
+    QAction* thumbnails = viewMenu->addAction(QString(), this, &MainWindow::showBrowseMode);
+    m_i18n.add([this, thumbnails]{ thumbnails->setText(tr("Thumbnails")); });
     viewMenu->addSeparator();
 
     // Zoom / navigation only make sense in the viewer, so their shortcuts are
     // scoped to it (WidgetWithChildrenShortcut) and don't clash with the grid.
-    auto addViewerAction = [this, viewMenu](const QString& text, const QKeySequence& sc,
+    // The text arrives as a callable so it can be re-evaluated on a language change.
+    auto addViewerAction = [this, viewMenu](const std::function<QString()>& text,
+                                            const QKeySequence& sc,
                                             const std::function<void()>& fn) {
-        QAction* a = new QAction(text, this);
+        QAction* a = new QAction(this);
+        m_i18n.add([a, text]{ a->setText(text()); });
         a->setShortcut(sc);
         a->setShortcutContext(Qt::WidgetWithChildrenShortcut);
         connect(a, &QAction::triggered, this, fn);
@@ -235,17 +260,18 @@ void MainWindow::setupMenus()
         viewMenu->addAction(a);
     };
     const auto inPano = [this]{ return m_stack->currentWidget() == m_pano; };
-    addViewerAction(tr("Zoom In"),   QKeySequence(Qt::Key_Plus),  [this, inPano]{ inPano() ? m_pano->zoomIn()  : ui->photoVidget->zoomIn(); });
-    addViewerAction(tr("Zoom Out"),  QKeySequence(Qt::Key_Minus), [this, inPano]{ inPano() ? m_pano->zoomOut() : ui->photoVidget->zoomOut(); });
-    addViewerAction(tr("Fit to Window"), QKeySequence("Ctrl+0"),  [this, inPano]{ inPano() ? m_pano->resetView() : ui->photoVidget->resetZoom(); });
+    addViewerAction([this]{ return tr("Zoom In"); },   QKeySequence(Qt::Key_Plus),  [this, inPano]{ inPano() ? m_pano->zoomIn()  : ui->photoVidget->zoomIn(); });
+    addViewerAction([this]{ return tr("Zoom Out"); },  QKeySequence(Qt::Key_Minus), [this, inPano]{ inPano() ? m_pano->zoomOut() : ui->photoVidget->zoomOut(); });
+    addViewerAction([this]{ return tr("Fit to Window"); }, QKeySequence("Ctrl+0"),  [this, inPano]{ inPano() ? m_pano->resetView() : ui->photoVidget->resetZoom(); });
     viewMenu->addSeparator();
-    addViewerAction(tr("Previous Image"), QKeySequence(Qt::Key_Left),  [this]{ stepImage(-1); });
-    addViewerAction(tr("Next Image"),     QKeySequence(Qt::Key_Right), [this]{ stepImage(1); });
-    addViewerAction(tr("Play Video"),     QKeySequence(Qt::Key_Space), [this]{ ui->photoVidget->playVideo(); });
-    addViewerAction(tr("Hide/Show Play Button"), QKeySequence(Qt::Key_H), [this]{ ui->photoVidget->togglePlayButton(); });
+    addViewerAction([this]{ return tr("Previous Image"); }, QKeySequence(Qt::Key_Left),  [this]{ stepImage(-1); });
+    addViewerAction([this]{ return tr("Next Image"); },     QKeySequence(Qt::Key_Right), [this]{ stepImage(1); });
+    addViewerAction([this]{ return tr("Play Video"); },     QKeySequence(Qt::Key_Space), [this]{ ui->photoVidget->playVideo(); });
+    addViewerAction([this]{ return tr("Hide/Show Play Button"); }, QKeySequence(Qt::Key_H), [this]{ ui->photoVidget->togglePlayButton(); });
     viewMenu->addSeparator();
 
-    m_fullScreenAction = new QAction(tr("Full Screen"), this);
+    m_fullScreenAction = new QAction(this);
+    m_i18n.add([this]{ m_fullScreenAction->setText(tr("Full Screen")); });
     m_fullScreenAction->setCheckable(true);
     m_fullScreenAction->setShortcut(QKeySequence(Qt::Key_F11));   // 'F' is handled in keyPressEvent too
     connect(m_fullScreenAction, &QAction::triggered, this, &MainWindow::setFullScreenView);
@@ -257,10 +283,12 @@ void MainWindow::setupMenus()
         viewMenu->addAction(d->toggleViewAction());   // Folders / Preview / Metadata
 
     viewMenu->addSeparator();
-    viewMenu->addAction(tr("Reset Layout"), this, &MainWindow::resetWidgetLayout);
+    QAction* resetLayout = viewMenu->addAction(QString(), this, &MainWindow::resetWidgetLayout);
+    m_i18n.add([this, resetLayout]{ resetLayout->setText(tr("Reset Layout")); });
 
     // ---- Help ----
-    QAction* shortcuts = new QAction(tr("Keyboard Shortcuts"), this);
+    QAction* shortcuts = new QAction(this);
+    m_i18n.add([this, shortcuts]{ shortcuts->setText(tr("Keyboard Shortcuts")); });
     shortcuts->setShortcut(QKeySequence("F1"));
     connect(shortcuts, &QAction::triggered, this, &MainWindow::onShortcuts);
     ui->menuHelp->insertAction(ui->actionAbout, shortcuts);
@@ -268,7 +296,8 @@ void MainWindow::setupMenus()
 
     connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onAbout);
     connect(ui->actionLicensing, &QAction::triggered, this, &MainWindow::onLicensing);
-    QAction* aboutQt = ui->menuHelp->addAction(tr("About Qt"));
+    QAction* aboutQt = ui->menuHelp->addAction(QString());
+    m_i18n.add([this, aboutQt]{ aboutQt->setText(tr("About Qt")); });
     connect(aboutQt, &QAction::triggered, qApp, &QApplication::aboutQt);
 }
 
@@ -633,6 +662,15 @@ void MainWindow::onShortcuts()
            "<tr><td><b>F</b> / <b>F11</b></td><td>Full screen</td></tr>"
            "<tr><td><b>Ctrl+Q</b></td><td>Quit</td></tr>"
            "</table>"));
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    // Qt sends this to every top-level widget when the translators change, and
+    // QWidget forwards it to children, so each panel retranslates itself.
+    if (event->type() == QEvent::LanguageChange)
+        m_i18n.retranslate();
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event)

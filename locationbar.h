@@ -26,6 +26,7 @@ signals:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+    void changeEvent(QEvent* event) override;   // QEvent::LanguageChange
 
 private:
     void rebuildCrumbs();

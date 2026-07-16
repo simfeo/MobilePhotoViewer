@@ -23,6 +23,9 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     , m_ui(new Ui::ImageRenderWidget)
     , m_stillImage(nullptr)
     , m_nextImage(nullptr)
+    , m_videoWidget(nullptr)
+    , m_player(nullptr)
+    , m_audioOutput(nullptr)
     , m_zoom(1.0)
     , m_imgTopLeft(0, 0)
     , m_dragging(false)
@@ -42,7 +45,6 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
 
     m_muteButton = new QPushButton(this);
     m_muteButton->setText(QString::fromUtf8("\xF0\x9F\x94\x8A"));   // 🔊
-    m_muteButton->setToolTip(tr("Mute"));
     m_muteButton->setCursor(Qt::PointingHandCursor);
     m_muteButton->setStyleSheet(kPillButtonQss);
     connect(m_muteButton, &QPushButton::clicked, this, [this] {
@@ -50,15 +52,14 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
         m_audioOutput->setMuted(muted);
         m_muteButton->setText(QString::fromUtf8(muted ? "\xF0\x9F\x94\x87"    // 🔇
                                                       : "\xF0\x9F\x94\x8A")); // 🔊
-        m_muteButton->setToolTip(muted ? tr("Unmute") : tr("Mute"));
+        retranslateControls();
     });
 
     m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
-    m_ui->playButton->setToolTip(tr("Play"));
     m_ui->playButton->setCursor(Qt::PointingHandCursor);
     m_ui->playButton->setStyleSheet(kPillButtonQss);
 
-    m_motionLabel = new QLabel(tr("Motion"), this);
+    m_motionLabel = new QLabel(this);
     m_motionLabel->setStyleSheet(kPillLabelQss);
 
     m_motionPill = new QFrame(this);
@@ -76,12 +77,11 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     // motion one, with a "360" button that asks the parent to open the sphere viewer.
     m_panoButton = new QPushButton(this);
     m_panoButton->setText("360");
-    m_panoButton->setToolTip(tr("View panorama"));
     m_panoButton->setCursor(Qt::PointingHandCursor);
     m_panoButton->setStyleSheet(kPillButtonQss);
     connect(m_panoButton, &QPushButton::clicked, this, [this]{ emit panoramaRequested(); });
 
-    m_panoLabel = new QLabel(tr("Panorama"), this);
+    m_panoLabel = new QLabel(this);
     m_panoLabel->setStyleSheet(kPillLabelQss);
 
     m_panoPill = new QFrame(this);
@@ -93,7 +93,6 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     panoLayout->addWidget(m_panoLabel);
     panoLayout->addWidget(m_panoButton);
     m_panoPill->hide();
-
 
     m_player = new QMediaPlayer(this);
     m_audioOutput = new QAudioOutput(this);
@@ -107,6 +106,10 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_player->setVideoOutput(m_videoWidget);
     m_videoWidget->hide();
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &ImageRenderWidget::statusChanged);
+
+    // Last: retranslateControls() reads the player/audio state, so it must run
+    // once both exist.
+    retranslateControls();
 }
 
 ImageRenderWidget::~ImageRenderWidget()
@@ -130,7 +133,7 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     m_videoWidget->hide();
     m_motionPill->hide();
     m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
-    m_ui->playButton->setToolTip(tr("Play"));
+    retranslateControls();
     m_panoPill->hide();
     update();
 }
@@ -229,6 +232,30 @@ void ImageRenderWidget::setZoom(double zoom, const QPointF& anchor)
     if (m_zoom <= 1.0)
         unsetCursor();
     update();
+}
+
+void ImageRenderWidget::retranslateControls()
+{
+    // Both tooltips depend on the current state, so they are derived here rather
+    // than set once: this is also what runs on a live language change. A
+    // changeEvent can reach us before the player is built, hence the guard.
+    if (!m_player || !m_audioOutput)
+        return;
+
+    const bool playing = (m_player->playbackState() == QMediaPlayer::PlayingState);
+    m_ui->playButton->setToolTip(playing ? tr("Pause") : tr("Play"));
+    m_muteButton->setToolTip(m_audioOutput->isMuted() ? tr("Unmute") : tr("Mute"));
+    m_panoButton->setToolTip(tr("View panorama"));
+    m_motionLabel->setText(tr("Motion"));
+    m_panoLabel->setText(tr("Panorama"));
+    positionPlayButton();   // a translated label changes the pill's width
+}
+
+void ImageRenderWidget::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        retranslateControls();
+    QWidget::changeEvent(event);
 }
 
 void ImageRenderWidget::positionPlayButton()
@@ -371,7 +398,7 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
         // m_playlist->next();
         m_videoWidget->hide();
         m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶ (back to start)
-        m_ui->playButton->setToolTip(tr("Play"));
+        retranslateControls();
         m_motionPill->show();
         m_motionPill->raise();
         break;
@@ -388,7 +415,7 @@ void ImageRenderWidget::on_playButton_clicked()
     {
         m_player->pause();
         m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));      // ▶
-        m_ui->playButton->setToolTip(tr("Play"));
+        retranslateControls();
         return;
     }
 
@@ -397,5 +424,5 @@ void ImageRenderWidget::on_playButton_clicked()
     m_motionPill->raise(); // keep the controls above the video surface
     m_player->play();
     m_ui->playButton->setText(QString::fromUtf8("\xE2\x9D\x9A\xE2\x9D\x9A"));  // ❚❚
-    m_ui->playButton->setToolTip(tr("Pause"));
+    retranslateControls();
 }

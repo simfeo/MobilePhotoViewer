@@ -3,6 +3,8 @@
 
 #include <QString>
 #include <QByteArray>
+#include <QList>
+#include <QPair>
 
 // Thin, typed wrapper over QSettings for the handful of persisted preferences.
 // Keeps the key strings and defaults in one place so the settings dialog and the
@@ -21,6 +23,16 @@ namespace AppSettings
 
     int     defaultThumbSize();              // thumbnail size at launch (px)
     void    setDefaultThumbSize(int px);
+
+    // UI language as an ISO code ("en", "ru", ...). Empty means "follow the
+    // system locale", which is the default. Applied by installTranslator() at
+    // startup; changing it needs a restart.
+    QString language();
+    void    setLanguage(const QString& code);
+
+    // Languages the app ships with, as {code, native name}. The first entry is
+    // always {"", "System default"}. Add a row here when a new .ts is added.
+    QList<QPair<QString, QString>> availableLanguages();
 
     // Folder to open at launch, honoring useLastFolder and falling back through
     // startFolder to the home directory when a path no longer exists.

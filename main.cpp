@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QIcon>
 #include <QImageReader>
+#include "i18n.h"
 
 int main(int argc, char* argv[])
 {
@@ -17,6 +18,9 @@ int main(int argc, char* argv[])
     // Stable QSettings location (see SettingsDialog / AppSettings).
     QCoreApplication::setOrganizationName("MobilePhotoViewer");
     QCoreApplication::setApplicationName("MobilePhotoViewer");
+    // After the org/app name (AppSettings reads QSettings) and before any UI is
+    // built, so every tr() resolves against the right catalogue.
+    I18n::apply(AppSettings::language());
     QApplication::setStyle(QStyleFactory::create("Fusion"));
     a.setWindowIcon(QIcon(":/appicon.png"));
 

@@ -251,6 +251,13 @@ void FolderBrowserPanel::setThumbSize(int px)
     applyThumbSize();
 }
 
+bool FolderBrowserPanel::event(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+        m_i18n.retranslate();
+    return QObject::event(event);
+}
+
 bool FolderBrowserPanel::eventFilter(QObject* watched, QEvent* event)
 {
     // Return/Enter opens the current thumbnail (the keyboard equivalent of a
@@ -313,20 +320,27 @@ void FolderBrowserPanel::openFolder(const QString& dirPath)
 
 void FolderBrowserPanel::buildToolBar()
 {
-    m_toolBar = new QToolBar(tr("Navigation"));
+    // Translatable strings go through m_i18n so they can be re-applied live when
+    // the language changes (see event()). The toolbar's windowTitle also drives
+    // its toggleViewAction() text in the View menu.
+    m_toolBar = new QToolBar;
+    m_i18n.add([this]{ m_toolBar->setWindowTitle(tr("Navigation")); });
     m_toolBar->setObjectName("NavigationToolBar");   // for saveState/restoreState
     m_toolBar->setMovable(false);
     const QColor fg = m_toolBar->palette().color(QPalette::ButtonText);
 
-    m_backAct = m_toolBar->addAction(makeArrowIcon(Qt::LeftArrow, fg), tr("Back"));
+    m_backAct = m_toolBar->addAction(makeArrowIcon(Qt::LeftArrow, fg), QString());
+    m_i18n.add([this]{ m_backAct->setText(tr("Back")); });
     m_backAct->setShortcut(QKeySequence::Back);
     connect(m_backAct, &QAction::triggered, this, &FolderBrowserPanel::goBack);
 
-    m_forwardAct = m_toolBar->addAction(makeArrowIcon(Qt::RightArrow, fg), tr("Forward"));
+    m_forwardAct = m_toolBar->addAction(makeArrowIcon(Qt::RightArrow, fg), QString());
+    m_i18n.add([this]{ m_forwardAct->setText(tr("Forward")); });
     m_forwardAct->setShortcut(QKeySequence::Forward);
     connect(m_forwardAct, &QAction::triggered, this, &FolderBrowserPanel::goForward);
 
-    m_upAct = m_toolBar->addAction(makeArrowIcon(Qt::UpArrow, fg), tr("Up"));
+    m_upAct = m_toolBar->addAction(makeArrowIcon(Qt::UpArrow, fg), QString());
+    m_i18n.add([this]{ m_upAct->setText(tr("Up")); });
     connect(m_upAct, &QAction::triggered, this, &FolderBrowserPanel::goUp);
 
     m_toolBar->addSeparator();
@@ -338,16 +352,18 @@ void FolderBrowserPanel::buildToolBar()
 
     // Thumbnail zoom buttons (same action as Ctrl+wheel / pinch / +- keys).
     m_toolBar->addSeparator();
-    QAction* zoomOut = m_toolBar->addAction(makeZoomIcon(false, fg), tr("Zoom Out"));
+    QAction* zoomOut = m_toolBar->addAction(makeZoomIcon(false, fg), QString());
+    m_i18n.add([this, zoomOut]{ zoomOut->setText(tr("Zoom Out")); });
     connect(zoomOut, &QAction::triggered, this, [this] { emit zoomRequested(-1); });
-    QAction* zoomIn = m_toolBar->addAction(makeZoomIcon(true, fg), tr("Zoom In"));
+    QAction* zoomIn = m_toolBar->addAction(makeZoomIcon(true, fg), QString());
+    m_i18n.add([this, zoomIn]{ zoomIn->setText(tr("Zoom In")); });
     connect(zoomIn, &QAction::triggered, this, [this] { emit zoomRequested(+1); });
 
     // Filter: show only files whose name/extension contains the typed text.
     m_toolBar->addSeparator();
     QLineEdit* filterEdit = new QLineEdit;
     filterEdit->setClearButtonEnabled(true);
-    filterEdit->setPlaceholderText(tr("Filter"));
+    m_i18n.add([this, filterEdit]{ filterEdit->setPlaceholderText(tr("Filter")); });
     filterEdit->setMaximumWidth(160);
     connect(filterEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
         m_filter = text.trimmed();
@@ -357,39 +373,41 @@ void FolderBrowserPanel::buildToolBar()
 
     // Sort menu: an exclusive key, plus an exclusive ascending/descending toggle.
     QToolButton* sortBtn = new QToolButton;
-    sortBtn->setText(tr("Sort"));
+    m_i18n.add([this, sortBtn]{ sortBtn->setText(tr("Sort")); });
     sortBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     sortBtn->setPopupMode(QToolButton::InstantPopup);
 
     QMenu* sortMenu = new QMenu(sortBtn);
     QActionGroup* keyGroup = new QActionGroup(this);
     keyGroup->setExclusive(true);
-    const auto addSort = [&](const QString& text, SortKey key) {
-        QAction* a = sortMenu->addAction(text);
+    const auto addSort = [&](const std::function<QString()>& text, SortKey key) {
+        QAction* a = sortMenu->addAction(QString());
+        m_i18n.add([a, text]{ a->setText(text()); });
         a->setCheckable(true);
         a->setChecked(key == m_sortKey);
         keyGroup->addAction(a);
         connect(a, &QAction::triggered, this, [this, key] { m_sortKey = key; reloadEntries(); });
     };
-    addSort(tr("Name"),          SortKey::Name);
-    addSort(tr("Date Created"),  SortKey::DateCreated);
-    addSort(tr("Date Modified"), SortKey::DateModified);
-    addSort(tr("Size"),          SortKey::Size);
-    addSort(tr("Extension"),     SortKey::Extension);
+    addSort([this]{ return tr("Name"); },          SortKey::Name);
+    addSort([this]{ return tr("Date Created"); },  SortKey::DateCreated);
+    addSort([this]{ return tr("Date Modified"); }, SortKey::DateModified);
+    addSort([this]{ return tr("Size"); },          SortKey::Size);
+    addSort([this]{ return tr("Extension"); },     SortKey::Extension);
 
     sortMenu->addSeparator();
     QActionGroup* dirGroup = new QActionGroup(this);
     dirGroup->setExclusive(true);
-    const auto addDir = [&](const QString& text, bool descending) {
-        QAction* a = sortMenu->addAction(text);
+    const auto addDir = [&](const std::function<QString()>& text, bool descending) {
+        QAction* a = sortMenu->addAction(QString());
+        m_i18n.add([a, text]{ a->setText(text()); });
         a->setCheckable(true);
         a->setChecked(descending == m_sortDescending);
         dirGroup->addAction(a);
         connect(a, &QAction::triggered, this,
                 [this, descending] { m_sortDescending = descending; reloadEntries(); });
     };
-    addDir(tr("Ascending"),  false);
-    addDir(tr("Descending"), true);
+    addDir([this]{ return tr("Ascending"); },  false);
+    addDir([this]{ return tr("Descending"); }, true);
 
     sortBtn->setMenu(sortMenu);
     m_toolBar->addWidget(sortBtn);
@@ -507,8 +525,9 @@ void FolderBrowserPanel::goUp()
 // --------------------------------------------------------------------------
 void FolderBrowserPanel::buildFileActions()
 {
-    const auto mk = [this](const QString& text, const QKeySequence& sc) {
-        QAction* a = new QAction(text, this);
+    const auto mk = [this](const std::function<QString()>& text, const QKeySequence& sc) {
+        QAction* a = new QAction(this);
+        m_i18n.add([a, text]{ a->setText(text()); });
         if (!sc.isEmpty())
         {
             a->setShortcut(sc);
@@ -518,18 +537,18 @@ void FolderBrowserPanel::buildFileActions()
         return a;
     };
 
-    m_cutAct      = mk(tr("Cut"),          QKeySequence::Cut);
-    m_copyAct     = mk(tr("Copy"),         QKeySequence::Copy);
-    m_pasteAct    = mk(tr("Paste"),        QKeySequence::Paste);
-    m_deleteAct   = mk(tr("Delete"),       QKeySequence::Delete);
-    m_renameAct   = mk(tr("Rename"),       QKeySequence(Qt::Key_F2));
-    m_copyPathAct = mk(tr("Copy as Path"), QKeySequence(QStringLiteral("Ctrl+Shift+C")));
+    m_cutAct      = mk([this]{ return tr("Cut"); },          QKeySequence::Cut);
+    m_copyAct     = mk([this]{ return tr("Copy"); },         QKeySequence::Copy);
+    m_pasteAct    = mk([this]{ return tr("Paste"); },        QKeySequence::Paste);
+    m_deleteAct   = mk([this]{ return tr("Delete"); },       QKeySequence::Delete);
+    m_renameAct   = mk([this]{ return tr("Rename"); },       QKeySequence(Qt::Key_F2));
+    m_copyPathAct = mk([this]{ return tr("Copy as Path"); }, QKeySequence(QStringLiteral("Ctrl+Shift+C")));
 #ifdef Q_OS_MACOS
-    m_showInExplorerAct = mk(tr("Show in Finder"),   QKeySequence());
+    m_showInExplorerAct = mk([this]{ return tr("Show in Finder"); },   QKeySequence());
 #else
-    m_showInExplorerAct = mk(tr("Show in Explorer"), QKeySequence());
+    m_showInExplorerAct = mk([this]{ return tr("Show in Explorer"); }, QKeySequence());
 #endif
-    m_refreshAct  = mk(tr("Refresh"),      QKeySequence(Qt::Key_F5));
+    m_refreshAct  = mk([this]{ return tr("Refresh"); },      QKeySequence(Qt::Key_F5));
 
     connect(m_cutAct,           &QAction::triggered, this, &FolderBrowserPanel::cutSelection);
     connect(m_copyAct,          &QAction::triggered, this, &FolderBrowserPanel::copySelection);

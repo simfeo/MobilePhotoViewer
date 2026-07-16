@@ -58,8 +58,19 @@ QImage MetadataPanel::loadImage(const QString& path) const
     return reader.read();
 }
 
+bool MetadataPanel::event(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+    {
+        m_metadata->setHeaderLabels({ tr("Property"), tr("Value") });
+        setFile(m_path);   // the row labels are translated, so rebuild them
+    }
+    return QObject::event(event);
+}
+
 void MetadataPanel::setFile(const QString& path)
 {
+    m_path = path;
     m_metadata->clear();
     if (path.isEmpty())
     {

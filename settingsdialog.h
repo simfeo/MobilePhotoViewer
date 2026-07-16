@@ -7,6 +7,7 @@ class QLineEdit;
 class QCheckBox;
 class QSlider;
 class QLabel;
+class QComboBox;
 
 // Preferences window: where the app starts (a fixed folder or the last one
 // browsed) and the default thumbnail size. Reads and writes via AppSettings;
@@ -29,6 +30,7 @@ private:
     QLineEdit* m_startFolder;
     QLabel*    m_thumbValue;
     QSlider*   m_thumbSize;
+    QComboBox* m_language;
 };
 
 #endif // SETTINGSDIALOG_H

@@ -18,7 +18,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # --------------------------------------------------------------------------
 # Qt
 # --------------------------------------------------------------------------
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets LinguistTools)
 
 # macOS 14+ SDKs removed the long-deprecated AGL framework, but an OpenGL CMake
 # config still lists it as a link dependency, breaking the link on Apple Silicon
@@ -135,6 +135,7 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     gridcontextmenu.cpp   gridcontextmenu.h
     settingsdialog.cpp    settingsdialog.h
     appsettings.cpp       appsettings.h
+    i18n.cpp              i18n.h
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
@@ -163,6 +164,24 @@ if(APPLE)
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
 endif()
+
+# --------------------------------------------------------------------------
+# Translations
+#
+# Compiles translations/*.ts into .qm and embeds them in the binary under
+# :/i18n/, where main() picks one up via QTranslator. No files to ship.
+#
+#   cmake --build <dir> --target update_translations   # rescan tr() -> .ts
+#
+# To add a language: add translations/MobilePhotoViewer_<code>.ts here and a row
+# to AppSettings::availableLanguages().
+# --------------------------------------------------------------------------
+qt_add_translations(MobilePhotoViewer
+    TS_FILES
+        translations/MobilePhotoViewer_en.ts
+        translations/MobilePhotoViewer_uk.ts
+    RESOURCE_PREFIX "/i18n"
+)
 
 target_include_directories(MobilePhotoViewer PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"                                # <jpegmanager.h>, <Tools/...>

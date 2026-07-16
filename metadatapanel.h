@@ -25,11 +25,17 @@ public:
 public slots:
     void setFile(const QString& path); // empty path clears both panels
 
+protected:
+    // QEvent::LanguageChange: QWidget forwards it to every QObject child, so this
+    // panel is reached even though it is not a widget itself.
+    bool event(QEvent* event) override;
+
 private:
     QImage loadImage(const QString& path) const;
 
     QLabel*      m_preview;
     QTreeWidget* m_metadata;
+    QString      m_path;   // current file, so a language change can re-populate
 };
 
 #endif // METADATAPANEL_H

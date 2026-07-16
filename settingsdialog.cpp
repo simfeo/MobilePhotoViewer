@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 #include "appsettings.h"
 #include "folderbrowserpanel.h"
+#include "i18n.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -13,6 +14,7 @@
 #include <QLabel>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QComboBox>
 
 SettingsDialog::SettingsDialog(QWidget* parent)
     : QDialog(parent)
@@ -52,6 +54,15 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     thumbRow->addWidget(m_thumbValue);
     thumbLayout->addRow(tr("Default size:"), thumbRow);
 
+    // ---- Appearance group ----
+    QGroupBox* uiBox = new QGroupBox(tr("Appearance"), this);
+    QFormLayout* uiLayout = new QFormLayout(uiBox);
+
+    m_language = new QComboBox(uiBox);
+    for (const auto& [code, name] : AppSettings::availableLanguages())
+        m_language->addItem(name, code);
+    uiLayout->addRow(tr("Language:"), m_language);
+
     // ---- Buttons ----
     QDialogButtonBox* buttons =
         new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -59,6 +70,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     QVBoxLayout* root = new QVBoxLayout(this);
     root->addWidget(startupBox);
     root->addWidget(thumbBox);
+    root->addWidget(uiBox);
     root->addStretch();
     root->addWidget(buttons);
 
@@ -78,6 +90,8 @@ void SettingsDialog::load()
     m_startFolder->setText(AppSettings::startFolder());
     m_thumbSize->setValue(AppSettings::defaultThumbSize());
     m_thumbValue->setText(tr("%1 px").arg(m_thumbSize->value()));
+    const int lang = m_language->findData(AppSettings::language());
+    m_language->setCurrentIndex(lang >= 0 ? lang : 0);   // 0 == system default
     updateStartFolderEnabled();
 }
 
@@ -97,8 +111,17 @@ void SettingsDialog::browseForStartFolder()
 
 void SettingsDialog::save()
 {
+    const QString language = m_language->currentData().toString();
+    const bool languageChanged = (language != AppSettings::language());
+
     AppSettings::setUseLastFolder(m_useLastFolder->isChecked());
     AppSettings::setStartFolder(m_startFolder->text());
     AppSettings::setDefaultThumbSize(m_thumbSize->value());
+    AppSettings::setLanguage(language);
+
+    // Swap the translators straight away: Qt then sends QEvent::LanguageChange to
+    // the widgets, which re-apply their strings. No restart needed.
+    if (languageChanged)
+        I18n::apply(language);
     accept();
 }

@@ -62,10 +62,15 @@ private:
     void   setZoom(double zoom, const QPointF& anchor);
     void   clampOffset();
     void   positionPlayButton();
+    // Re-applies the pills' labels and tooltips. The play/mute tooltips depend on
+    // the current state, so this is called on state changes as well as on a
+    // language change.
+    void   retranslateControls();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;   // QEvent::LanguageChange
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
