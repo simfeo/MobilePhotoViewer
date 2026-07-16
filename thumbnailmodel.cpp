@@ -51,6 +51,14 @@ QString ThumbnailModel::filePath(const QModelIndex& index) const
     return QString();
 }
 
+QModelIndex ThumbnailModel::indexOf(const QString& absPath) const
+{
+    // m_files holds QFileInfo::absoluteFilePath() values, which is also what the
+    // rest of the app passes around, so a plain match is enough.
+    const int row = m_files.indexOf(absPath);
+    return row >= 0 ? index(row, 0) : QModelIndex();
+}
+
 bool ThumbnailModel::isDir(const QModelIndex& index) const
 {
     return index.isValid() && index.row() < m_dirs.size() && m_dirs.at(index.row());

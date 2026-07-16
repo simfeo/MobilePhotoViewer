@@ -22,9 +22,10 @@ class ThumbnailModel : public QAbstractListModel
 public:
     explicit ThumbnailModel(QObject* parent = nullptr);
 
-    void    setEntries(const QList<QFileInfo>& entries);
-    QString filePath(const QModelIndex& index) const;
-    bool    isDir(const QModelIndex& index) const;
+    void        setEntries(const QList<QFileInfo>& entries);
+    QString     filePath(const QModelIndex& index) const;
+    QModelIndex indexOf(const QString& absPath) const;   // invalid if not in this folder
+    bool        isDir(const QModelIndex& index) const;
 
     int      rowCount(const QModelIndex& parent = QModelIndex()) const override;
     QVariant data(const QModelIndex& index, int role) const override;

@@ -42,6 +42,11 @@ public:
 
     void setThumbSize(int px);            // set display size directly (clamped)
 
+    // Make the grid's current item this file and scroll it into view. Used when
+    // returning from the viewer so the grid lands on the image that was open.
+    // No-op if the file isn't in the folder currently shown.
+    void selectFile(const QString& absPath);
+
     void fillEditMenu(QMenu* menu);       // add the file-operation actions to a menu
 
     const QStringList& supportedFormats() const { return m_supportedFormats; }

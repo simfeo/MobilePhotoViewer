@@ -214,6 +214,17 @@ QWidget* FolderBrowserPanel::gridWidget() const
     return m_grid;
 }
 
+void FolderBrowserPanel::selectFile(const QString& absPath)
+{
+    if (absPath.isEmpty())
+        return;
+    const QModelIndex idx = m_thumbs->indexOf(absPath);
+    if (!idx.isValid())
+        return;   // different folder, or filtered out of the current view
+    m_grid->setCurrentIndex(idx);
+    m_grid->scrollTo(idx, QAbstractItemView::EnsureVisible);
+}
+
 QToolBar* FolderBrowserPanel::toolBar() const
 {
     return m_toolBar;

@@ -282,6 +282,9 @@ void MainWindow::showBrowseMode()
 {
     m_stack->setCurrentWidget(m_browser->gridWidget());
     m_browser->gridWidget()->setFocus();
+    // Land on the image that was open (arrow keys may have moved it on from the
+    // one activated), scrolled into view.
+    m_browser->selectFile(m_currentPath);
 }
 
 void MainWindow::OpenFolder(const QString& dirPath)
