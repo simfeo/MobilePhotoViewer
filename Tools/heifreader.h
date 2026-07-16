@@ -5,7 +5,7 @@
 
 #include <fstream>
 #include <vector>
-#include <stdint.h>
+#include <cstdint>   // std::int64_t (<stdint.h> only declares it globally)
 #include <memory>
 
 namespace HeifHelpers

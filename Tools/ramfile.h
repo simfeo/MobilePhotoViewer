@@ -1,7 +1,7 @@
 #ifndef RAMFILE_H
 #define RAMFILE_H
 
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
 
 namespace Utils

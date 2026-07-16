@@ -15,6 +15,8 @@ namespace Ui {
 
 class VideoDecoder;
 class QPushButton;
+class QFrame;
+class QLabel;
 
 class QImage;
 namespace std
@@ -83,6 +85,17 @@ private:
     bool    m_dragging;
     QPoint  m_dragLast;
     bool    m_hasVideo;      // a motion-photo clip is loaded
+
+    // Overlay pills in the photo's top-left. A photo is either a motion clip or
+    // a panorama, not both, so only one of these is ever visible.
+    //
+    // Motion: "Motion" label + play/pause (m_ui->playButton, reparented in) + mute.
+    QFrame*      m_motionPill;
+    QLabel*      m_motionLabel;
+    QPushButton* m_muteButton;
+    // Panorama: "Panorama" label + a "360" button that opens the sphere viewer.
+    QFrame*      m_panoPill;
+    QLabel*      m_panoLabel;
     QPushButton* m_panoButton;
 };
 

@@ -12,6 +12,9 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QFrame>
+#include <QHBoxLayout>
+#include <QLabel>
 
 #include <QDebug>
 
@@ -28,28 +31,68 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_ui->setupUi(this);
     setFocusPolicy(Qt::StrongFocus);
 
-    // Round, semi-transparent play button tucked into a corner (positioned in
-    // positionPlayButton()), rather than a label over the middle of the photo.
-    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
-    m_ui->playButton->setCursor(Qt::PointingHandCursor);
-    m_ui->playButton->setStyleSheet(
-        "QPushButton{background:rgba(0,0,0,140);color:white;border:none;"
-        "border-radius:28px;font-size:22px;padding-left:4px;}"
-        "QPushButton:hover{background:rgba(0,0,0,190);}");
-    m_ui->playButton->hide();
+    // Motion-photo controls: a semi-transparent pill in the photo's top-left
+    // (positioned in positionPlayButton()) holding play/pause and mute, rather
+    // than a single round button over the photo.
+    static const char* kPillButtonQss =
+        "QPushButton{background:transparent;color:white;border:none;"
+        "border-radius:11px;font-size:14px;min-width:22px;min-height:22px;}"
+        "QPushButton:hover{background:rgba(255,255,255,45);}";
+    static const char* kPillLabelQss = "color:white;font-size:12px;font-weight:bold;";
 
-    // Panorama overlay button (shown for equirectangular photos): same look as the
-    // play button, "360". Clicking it asks the parent to open the sphere viewer.
+    m_muteButton = new QPushButton(this);
+    m_muteButton->setText(QString::fromUtf8("\xF0\x9F\x94\x8A"));   // 🔊
+    m_muteButton->setToolTip(tr("Mute"));
+    m_muteButton->setCursor(Qt::PointingHandCursor);
+    m_muteButton->setStyleSheet(kPillButtonQss);
+    connect(m_muteButton, &QPushButton::clicked, this, [this] {
+        const bool muted = !m_audioOutput->isMuted();
+        m_audioOutput->setMuted(muted);
+        m_muteButton->setText(QString::fromUtf8(muted ? "\xF0\x9F\x94\x87"    // 🔇
+                                                      : "\xF0\x9F\x94\x8A")); // 🔊
+        m_muteButton->setToolTip(muted ? tr("Unmute") : tr("Mute"));
+    });
+
+    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
+    m_ui->playButton->setToolTip(tr("Play"));
+    m_ui->playButton->setCursor(Qt::PointingHandCursor);
+    m_ui->playButton->setStyleSheet(kPillButtonQss);
+
+    m_motionLabel = new QLabel(tr("Motion"), this);
+    m_motionLabel->setStyleSheet(kPillLabelQss);
+
+    m_motionPill = new QFrame(this);
+    m_motionPill->setObjectName("motionPill");
+    m_motionPill->setStyleSheet("#motionPill{background:rgba(0,0,0,140);border-radius:15px;}");
+    auto* pillLayout = new QHBoxLayout(m_motionPill);
+    pillLayout->setContentsMargins(5, 4, 5, 4);
+    pillLayout->setSpacing(4);
+    pillLayout->addWidget(m_motionLabel);
+    pillLayout->addWidget(m_ui->playButton);   // reparents into the pill
+    pillLayout->addWidget(m_muteButton);
+    m_motionPill->hide();
+
+    // Panorama overlay (shown for equirectangular photos): the same pill as the
+    // motion one, with a "360" button that asks the parent to open the sphere viewer.
     m_panoButton = new QPushButton(this);
-    m_panoButton->setFixedSize(60, 60);
     m_panoButton->setText("360");
+    m_panoButton->setToolTip(tr("View panorama"));
     m_panoButton->setCursor(Qt::PointingHandCursor);
-    m_panoButton->setStyleSheet(
-        "QPushButton{background:rgba(0,0,0,140);color:white;border:none;"
-        "border-radius:30px;font-size:16px;font-weight:bold;}"
-        "QPushButton:hover{background:rgba(0,0,0,190);}");
-    m_panoButton->hide();
+    m_panoButton->setStyleSheet(kPillButtonQss);
     connect(m_panoButton, &QPushButton::clicked, this, [this]{ emit panoramaRequested(); });
+
+    m_panoLabel = new QLabel(tr("Panorama"), this);
+    m_panoLabel->setStyleSheet(kPillLabelQss);
+
+    m_panoPill = new QFrame(this);
+    m_panoPill->setObjectName("panoPill");
+    m_panoPill->setStyleSheet("#panoPill{background:rgba(0,0,0,140);border-radius:15px;}");
+    auto* panoLayout = new QHBoxLayout(m_panoPill);
+    panoLayout->setContentsMargins(5, 4, 5, 4);
+    panoLayout->setSpacing(4);
+    panoLayout->addWidget(m_panoLabel);
+    panoLayout->addWidget(m_panoButton);
+    m_panoPill->hide();
 
 
     m_player = new QMediaPlayer(this);
@@ -85,15 +128,19 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     unsetCursor();
     m_player->stop();
     m_videoWidget->hide();
-    m_ui->playButton->hide();
-    m_panoButton->hide();
+    m_motionPill->hide();
+    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
+    m_ui->playButton->setToolTip(tr("Play"));
+    m_panoPill->hide();
     update();
 }
 
 void ImageRenderWidget::SetPlayButtonVisible(bool state)
 {
     positionPlayButton();
-    m_ui->playButton->setVisible(state);
+    m_motionPill->setVisible(state);
+    if (state)
+        m_motionPill->raise();
 }
 
 void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
@@ -107,7 +154,7 @@ void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
 void ImageRenderWidget::togglePlayButton()
 {
     if (m_hasVideo && !m_videoWidget->isVisible())   // only meaningful before playback
-        m_ui->playButton->setVisible(!m_ui->playButton->isVisible());
+        m_motionPill->setVisible(!m_motionPill->isVisible());
 }
 
 // Rectangle the current image is drawn into: scaled to fit while keeping the
@@ -186,19 +233,24 @@ void ImageRenderWidget::setZoom(double zoom, const QPointF& anchor)
 
 void ImageRenderWidget::positionPlayButton()
 {
-    // Bottom-centre, a little above the edge: visible but off the photo's middle.
-    const int w = m_ui->playButton->width();
-    const int h = m_ui->playButton->height();
-    m_ui->playButton->move((width() - w) / 2, height() - h - 24);
-    // The panorama button uses the same spot (a photo is a motion clip or a
-    // panorama, not both), so only one is ever visible at a time.
-    m_panoButton->move((width() - m_panoButton->width()) / 2, height() - m_panoButton->height() - 24);
+    // Both pills sit in the photo's top-left corner, inset a little. Only one is
+    // ever visible (a photo is a motion clip or a panorama, not both).
+    const QRect img = currentImageRect();
+    if (img.isNull())
+        return;
+    for (QFrame* pill : { m_motionPill, m_panoPill })
+    {
+        pill->adjustSize();
+        pill->move(img.left() + 12, img.top() + 12);
+    }
 }
 
 void ImageRenderWidget::SetPanoramaButtonVisible(bool state)
 {
     positionPlayButton();
-    m_panoButton->setVisible(state);
+    m_panoPill->setVisible(state);
+    if (state)
+        m_panoPill->raise();
 }
 
 void ImageRenderWidget::paintEvent(QPaintEvent* event)
@@ -248,7 +300,7 @@ void ImageRenderWidget::resetZoom()
 
 void ImageRenderWidget::playVideo()
 {
-    if (m_ui->playButton->isVisible())   // only when a clip is loaded
+    if (m_motionPill->isVisible())   // only when a clip is loaded
         on_playButton_clicked();
 }
 
@@ -301,7 +353,8 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
     case QMediaPlayer::LoadedMedia:
         // setStatusInfo(QString());
         m_videoWidget->hide();
-        m_ui->playButton->show();
+        m_motionPill->show();
+        m_motionPill->raise();
         break;
     case QMediaPlayer::LoadingMedia:
         // setStatusInfo(tr("Loading..."));
@@ -316,8 +369,11 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
     case QMediaPlayer::EndOfMedia:
         // QApplication::alert(this);
         // m_playlist->next();
-        m_ui->playButton->show();
         m_videoWidget->hide();
+        m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶ (back to start)
+        m_ui->playButton->setToolTip(tr("Play"));
+        m_motionPill->show();
+        m_motionPill->raise();
         break;
     case QMediaPlayer::InvalidMedia:
         // displayErrorMessage();
@@ -327,8 +383,19 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
 
 void ImageRenderWidget::on_playButton_clicked()
 {
-    m_ui->playButton->hide();
+    // The pill stays up during playback, so this button toggles play/pause.
+    if (m_player->playbackState() == QMediaPlayer::PlayingState)
+    {
+        m_player->pause();
+        m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));      // ▶
+        m_ui->playButton->setToolTip(tr("Play"));
+        return;
+    }
+
     updateVideoGeometry(); // ensure the overlay matches the photo before showing
     m_videoWidget->show();
+    m_motionPill->raise(); // keep the controls above the video surface
     m_player->play();
+    m_ui->playButton->setText(QString::fromUtf8("\xE2\x9D\x9A\xE2\x9D\x9A"));  // ❚❚
+    m_ui->playButton->setToolTip(tr("Pause"));
 }

@@ -1,6 +1,6 @@
 #ifndef HEIFBOXES_H
 #define HEIFBOXES_H
-#include <stdint.h>
+#include <cstdint>   // std::int64_t / std::uint64_t (<stdint.h> only declares them globally)
 #include <string>
 #include <vector>
 #include <memory>

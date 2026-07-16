@@ -1,6 +1,7 @@
 #include "ramfile.h"
 
 #include <algorithm>  // std::ranges::copy_n
+#include <cstdio>     // SEEK_SET / SEEK_CUR / SEEK_END
 
 namespace Utils
 {
