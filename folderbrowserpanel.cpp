@@ -15,6 +15,7 @@
 #include <QDateTime>
 #include <QEvent>
 #include <QWheelEvent>
+#include <QKeyEvent>
 #include <QNativeGestureEvent>
 #include <QShortcut>
 #include <QToolBar>
@@ -170,12 +171,17 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
             this, &FolderBrowserPanel::onFolderSelected);
     connect(m_grid->selectionModel(), &QItemSelectionModel::currentChanged,
             this, &FolderBrowserPanel::onThumbSelected);
+    // Mouse only. Return/Enter is handled in eventFilter() instead of via
+    // activated(): the view emits activated() but then *ignores* the key event,
+    // which would let it bubble up to MainWindow and immediately close the image
+    // we just opened.
     connect(m_grid, &QListView::doubleClicked, this, &FolderBrowserPanel::onThumbActivated);
 
     // Thumbnail zoom: Ctrl+wheel / trackpad pinch (via the event filter), and the
     // +/- keys while the grid is focused.
     applyThumbSize();
     m_grid->viewport()->installEventFilter(this);
+    m_grid->installEventFilter(this);   // Return/Enter -> open the current thumbnail
 
     const auto addZoomKey = [this](QKeySequence seq, int steps) {
         QShortcut* sc = new QShortcut(seq, m_grid);
@@ -236,6 +242,22 @@ void FolderBrowserPanel::setThumbSize(int px)
 
 bool FolderBrowserPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    // Return/Enter opens the current thumbnail (the keyboard equivalent of a
+    // double-click). Handled here, and consumed, so the key never bubbles up to
+    // MainWindow -- where Enter means "back to the thumbnails" and would close
+    // the image again the instant it opened.
+    if (watched == m_grid && event->type() == QEvent::KeyPress)
+    {
+        auto* ke = static_cast<QKeyEvent*>(event);
+        if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
+        {
+            const QModelIndex idx = m_grid->currentIndex();
+            if (idx.isValid())
+                onThumbActivated(idx);
+            return true;   // consume either way: never let it reach MainWindow
+        }
+    }
+
     if (watched == m_grid->viewport())
     {
         if (event->type() == QEvent::Wheel)

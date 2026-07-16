@@ -215,8 +215,11 @@ void MainWindow::setupMenus()
     QMenu* viewMenu = new QMenu(tr("View"), this);
     menuBar()->insertMenu(ui->menuHelp->menuAction(), viewMenu);
 
-    QAction* browse = viewMenu->addAction(tr("Thumbnails"), this, &MainWindow::showBrowseMode);
-    browse->setShortcut(QKeySequence("Ctrl+B"));
+    // Deliberately no setShortcut(): Enter / Esc go back to the thumbnails, but
+    // both are handled in keyPressEvent(). As action shortcuts they would be
+    // window-wide -- Enter would be stolen from the grid (where it opens an
+    // image), and Esc would bypass the "leave full screen first" check.
+    viewMenu->addAction(tr("Thumbnails"), this, &MainWindow::showBrowseMode);
     viewMenu->addSeparator();
 
     // Zoom / navigation only make sense in the viewer, so their shortcuts are
@@ -616,7 +619,8 @@ void MainWindow::onShortcuts()
            "<tr><td><b>Ctrl+O</b></td><td>Open file</td></tr>"
            "<tr><td><b>Ctrl+Shift+O</b></td><td>Open folder</td></tr>"
            "<tr><td><b>Ctrl+S</b></td><td>Save video (motion photos)</td></tr>"
-           "<tr><td><b>Ctrl+B</b> / <b>Esc</b></td><td>Back to thumbnails</td></tr>"
+           "<tr><td><b>Enter</b> / double-click</td><td>Open the selected thumbnail</td></tr>"
+           "<tr><td><b>Enter</b> / <b>Esc</b></td><td>Back to thumbnails</td></tr>"
            "<tr><td><b>+</b> / <b>&minus;</b></td><td>Zoom in / out</td></tr>"
            "<tr><td><b>Ctrl+0</b></td><td>Fit to window</td></tr>"
            "<tr><td>drag</td><td>Pan while zoomed</td></tr>"
@@ -640,6 +644,16 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
             setFullScreenView(false);
         else if (m_stack->currentWidget() != m_browser->gridWidget())
             showBrowseMode();   // back to the thumbnails (from image or pano view)
+    }
+    else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
+    {
+        // Enter mirrors the viewer's double-click: back to the thumbnails. The
+        // grid consumes Enter itself (to open the current thumbnail), so this is
+        // only ever reached from the image / panorama view.
+        if (m_stack->currentWidget() != m_browser->gridWidget())
+            showBrowseMode();
+        else
+            QMainWindow::keyPressEvent(event);
     }
     else
     {
