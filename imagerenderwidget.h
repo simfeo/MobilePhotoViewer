@@ -4,10 +4,10 @@
 #include <QWidget>
 #include <memory>
 
-#include "videowidget.h"
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QBuffer>
+#include <QVideoFrame>
 
 namespace Ui {
     class ImageRenderWidget;
@@ -17,6 +17,7 @@ class VideoDecoder;
 class QPushButton;
 class QFrame;
 class QLabel;
+class QVideoSink;
 
 class QImage;
 namespace std
@@ -58,7 +59,6 @@ private:
 
     QRect  currentImageRect() const;   // fit-to-window rect (also used for the video)
     QRectF displayRect() const;        // zoomed/panned rect for the still image
-    void   updateVideoGeometry();
     void   setZoom(double zoom, const QPointF& anchor);
     void   clampOffset();
     void   positionPlayButton();
@@ -66,6 +66,7 @@ private:
     // the current state, so this is called on state changes as well as on a
     // language change.
     void   retranslateControls();
+    void   stopVideo();   // back to showing the still
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -81,9 +82,17 @@ private:
     std::shared_ptr<QPixmap>        m_stillImage;
     std::shared_ptr<QImage>         m_nextImage;
 
-    VideoWidget* m_videoWidget;
+    // The clip is drawn straight into paintEvent() from the player's sink, rather
+    // than through a QVideoWidget. Qt's QVideoWidget embeds a native QVideoWindow
+    // via createWindowContainer(), and such a child window is not composited over a
+    // full-screen top-level: the audio played on while the picture never appeared.
+    // Painting the frames ourselves is the same path that already draws the still,
+    // so it works in every window state, and keeps the overlay pills on top.
     QMediaPlayer* m_player;
     QAudioOutput* m_audioOutput;
+    QVideoSink*   m_videoSink;
+    QVideoFrame   m_frame;       // most recent frame; invalid when nothing decoded yet
+    bool          m_showVideo;   // paint m_frame instead of the still
 
     double  m_zoom;          // 1.0 == fit to window
     QPointF m_imgTopLeft;    // top-left of the displayed still, in widget coords

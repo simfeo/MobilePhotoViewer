@@ -3,7 +3,6 @@
 #include <QImageReader>
 #include <QBuffer>
 #include <QMediaPlayer>
-#include <QVideoWidget>
 #include <QPainter>
 #include <QMimeData>
 #include <QDropEvent>
@@ -40,6 +39,8 @@
 #include "panoramawidget.h"
 #include "metadatapanel.h"
 #include "folderbrowserpanel.h"
+
+#include <QTimer>
 #include "settingsdialog.h"
 #include "appsettings.h"
 
@@ -585,15 +586,34 @@ void MainWindow::wheelEvent(QWheelEvent *event)
 
 void MainWindow::setFullScreenView(bool on)
 {
+    // Batch the transition into a single repaint: laying the docks back out while
+    // the window is still full screen, and only then resizing it, shows up as a
+    // flicker. The state change goes first so the geometry has settled before the
+    // chrome is laid out into it.
+    setUpdatesEnabled(false);
+
+    if (on)
+    {
+        // Capture the state only on the way in, so a repeated "go full screen"
+        // can't overwrite it with WindowFullScreen itself.
+        if (!isFullScreen())
+            m_preFullScreenState = windowState() & ~Qt::WindowFullScreen;
+        showFullScreen();
+    }
+    else
+    {
+        // Not showNormal(): that also clears WindowMaximized, so a window that was
+        // maximized before going full screen would come back un-maximized.
+        setWindowState(m_preFullScreenState);
+    }
+
     // Immersive full screen: drop the menu bar, the toolbar and the browse docks.
     menuBar()->setVisible(!on);
     m_browser->toolBar()->setVisible(!on);
     for (QDockWidget* d : findChildren<QDockWidget*>())
         d->setVisible(!on);
-    if (on)
-        showFullScreen();
-    else
-        showNormal();
+
+    setUpdatesEnabled(true);
     if (m_fullScreenAction && m_fullScreenAction->isChecked() != on)
     {
         QSignalBlocker block(m_fullScreenAction);

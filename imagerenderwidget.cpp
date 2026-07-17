@@ -7,6 +7,7 @@
 #include <QAudioDevice>
 #include <QAudioOutput>
 #include <QAudioSink>
+#include <QVideoSink>
 #include <QMediaDevices>
 #include <QBuffer>
 #include <QKeyEvent>
@@ -23,9 +24,10 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     , m_ui(new Ui::ImageRenderWidget)
     , m_stillImage(nullptr)
     , m_nextImage(nullptr)
-    , m_videoWidget(nullptr)
     , m_player(nullptr)
     , m_audioOutput(nullptr)
+    , m_videoSink(nullptr)
+    , m_showVideo(false)
     , m_zoom(1.0)
     , m_imgTopLeft(0, 0)
     , m_dragging(false)
@@ -98,13 +100,16 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_audioOutput = new QAudioOutput(this);
     m_player->setAudioOutput(m_audioOutput);
 
-    m_videoWidget = new VideoWidget(this);
-    // Fill the still-photo rectangle exactly. A motion-photo video shares the
-    // still's framing, so ignoring the (sub-percent) aspect difference matches
-    // the photo without a visible letterbox.
-    m_videoWidget->setAspectRatioMode(Qt::IgnoreAspectRatio);
-    m_player->setVideoOutput(m_videoWidget);
-    m_videoWidget->hide();
+    // Take the decoded frames and paint them ourselves (see paintEvent) instead of
+    // handing the player a QVideoWidget.
+    m_videoSink = new QVideoSink(this);
+    m_player->setVideoSink(m_videoSink);
+    connect(m_videoSink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame& frame) {
+        if (!m_showVideo)
+            return;
+        m_frame = frame;
+        update(currentImageRect());
+    });
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &ImageRenderWidget::statusChanged);
 
     // Last: retranslateControls() reads the player/audio state, so it must run
@@ -130,7 +135,7 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     m_hasVideo = false;
     unsetCursor();
     m_player->stop();
-    m_videoWidget->hide();
+    stopVideo();
     m_motionPill->hide();
     m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
     retranslateControls();
@@ -156,7 +161,7 @@ void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
 
 void ImageRenderWidget::togglePlayButton()
 {
-    if (m_hasVideo && !m_videoWidget->isVisible())   // only meaningful before playback
+    if (m_hasVideo && !m_showVideo)   // only meaningful before playback
         m_motionPill->setVisible(!m_motionPill->isVisible());
 }
 
@@ -177,13 +182,6 @@ QRect ImageRenderWidget::currentImageRect() const
     int x_offset = (width() - scaled.width()) / 2;
     int y_offset = (height() - scaled.height()) / 2;
     return QRect(x_offset, y_offset, scaled.width(), scaled.height());
-}
-
-void ImageRenderWidget::updateVideoGeometry()
-{
-    const QRect r = currentImageRect();
-    if (r.isValid())
-        m_videoWidget->setGeometry(r);
 }
 
 // Rectangle the still is actually drawn into: the fit rect scaled by m_zoom and
@@ -231,6 +229,17 @@ void ImageRenderWidget::setZoom(double zoom, const QPointF& anchor)
     setCursor(m_zoom > 1.0 ? Qt::OpenHandCursor : Qt::ArrowCursor);
     if (m_zoom <= 1.0)
         unsetCursor();
+    update();
+}
+
+void ImageRenderWidget::stopVideo()
+{
+    // Drop the frame as well as the flag: keeping it would leave the last frame on
+    // screen instead of the still, and hold its buffer alive for no reason.
+    if (!m_showVideo)
+        return;
+    m_showVideo = false;
+    m_frame = QVideoFrame();
     update();
 }
 
@@ -293,6 +302,20 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+    // A playing clip replaces the still. It is drawn into the fit rect rather than
+    // the zoomed one: the clip shares the photo's framing, and zoom/pan apply to
+    // the still only (as they did when the video was a separate widget).
+    if (m_showVideo && m_frame.isValid())
+    {
+        QVideoFrame::PaintOptions options;
+        // The clip's aspect differs from the still's by a sub-percent, so filling
+        // the photo's rect exactly matches it without a visible letterbox.
+        options.aspectRatioMode = Qt::IgnoreAspectRatio;
+        m_frame.paint(&painter, currentImageRect(), options);
+        return;
+    }
+
     if (m_nextImage)
         painter.drawPixmap(r, QPixmap::fromImage(*m_nextImage.get()), QRectF(m_nextImage->rect()));
     else
@@ -302,10 +325,8 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
 void ImageRenderWidget::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
-    // Keep the video overlay aligned with the photo on every size change.
-    // Doing this here (rather than in paintEvent) keeps the native video
-    // surface in sync even while a video is playing and covering the widget.
-    updateVideoGeometry();
+    // The clip is painted into currentImageRect(), which is derived from the
+    // widget's size, so a resize needs no video-specific work beyond a repaint.
     positionPlayButton();
 }
 
@@ -379,7 +400,7 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
     case QMediaPlayer::NoMedia:
     case QMediaPlayer::LoadedMedia:
         // setStatusInfo(QString());
-        m_videoWidget->hide();
+        stopVideo();
         m_motionPill->show();
         m_motionPill->raise();
         break;
@@ -396,7 +417,7 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
     case QMediaPlayer::EndOfMedia:
         // QApplication::alert(this);
         // m_playlist->next();
-        m_videoWidget->hide();
+        stopVideo();
         m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶ (back to start)
         retranslateControls();
         m_motionPill->show();
@@ -419,10 +440,9 @@ void ImageRenderWidget::on_playButton_clicked()
         return;
     }
 
-    updateVideoGeometry(); // ensure the overlay matches the photo before showing
-    m_videoWidget->show();
-    m_motionPill->raise(); // keep the controls above the video surface
+    m_showVideo = true;    // paintEvent draws frames from here on
     m_player->play();
     m_ui->playButton->setText(QString::fromUtf8("\xE2\x9D\x9A\xE2\x9D\x9A"));  // ❚❚
     retranslateControls();
+    update();
 }

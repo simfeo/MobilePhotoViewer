@@ -124,7 +124,6 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     main.cpp
     mainwindow.cpp        mainwindow.h        mainwindow.ui
     imagerenderwidget.cpp imagerenderwidget.h imagerenderwidget.ui
-    videowidget.cpp       videowidget.h       videowidget.ui
     heifmanager.cpp       heifmanager.h
     jpegmanager.cpp       jpegmanager.h
     thumbnailmodel.cpp    thumbnailmodel.h

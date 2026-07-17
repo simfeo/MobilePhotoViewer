@@ -71,6 +71,9 @@ private:
     QString             m_currentPath;
     QByteArray          m_defaultState;   // dock/toolbar layout as first built
     Retranslator        m_i18n;           // re-applies menu/dock texts on language change
+    // Window state (maximized or not) as it was before going full screen, so
+    // leaving full screen restores it instead of always dropping to normal.
+    Qt::WindowStates    m_preFullScreenState = Qt::WindowNoState;
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
 
     // browsing mode
