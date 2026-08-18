@@ -128,6 +128,7 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     jpegmanager.cpp       jpegmanager.h
     thumbnailmodel.cpp    thumbnailmodel.h
     panoramawidget.cpp    panoramawidget.h
+    depthwidget.cpp       depthwidget.h
     metadatapanel.cpp     metadatapanel.h
     folderbrowserpanel.cpp folderbrowserpanel.h
     locationbar.cpp       locationbar.h
