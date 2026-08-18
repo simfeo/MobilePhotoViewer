@@ -9,6 +9,7 @@
 #include <span>
 #include <algorithm>  // std::ranges::equal
 #include <cmath>
+#include <cstring>
 #include <QTransform>
 
 // flipped() exists only from Qt 6.9; the project still targets 6.5.
@@ -27,12 +28,43 @@ JpegManager::JpegManager(const QString& imgPath)
 }
 
 namespace {
-// The DualShot depth block stores no geometry, so the dimensions are recovered by
-// factorising its length and matching the still's aspect (1024x576 on the S22).
-QImage depthFromRaw(const uint8_t* bytes, size_t len, double imageAspect)
+uint32_t le32(const uint8_t* p)
+{
+    return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
+}
+
+// Owning 8-bit grayscale view of a raw plane.
+QImage grayFromRaw(const uint8_t* bytes, int w, int h)
+{
+    if (w <= 0 || h <= 0)
+        return QImage();
+    return QImage(reinterpret_cast<const uchar*>(bytes), w, h, w, QImage::Format_Grayscale8).copy();
+}
+
+// DualShot_Extra_Info states the depth geometry: a marker of the form
+// <01..09> 00 ff ff is followed by width and height. The record starts with a
+// second, bogus marker, so the search begins past it (as ExifTool's does).
+QSize dualShotDepthSize(const uint8_t* extra, size_t len, size_t expected)
+{
+    for (size_t i = 32; i + 12 <= len && i < 96; i += 4)
+    {
+        if (extra[i] < 0x01 || extra[i] > 0x09 || extra[i + 1] != 0x00
+            || extra[i + 2] != 0xFF || extra[i + 3] != 0xFF)
+            continue;
+        const uint32_t w = le32(extra + i + 4);
+        const uint32_t h = le32(extra + i + 8);
+        if (w && h && size_t(w) * h == expected)
+            return QSize(int(w), int(h));
+    }
+    return QSize();
+}
+
+// Fallback when the geometry is missing: of the factorisations of 'len', take the
+// one closest to the still's aspect.
+QSize guessDepthSize(size_t len, double imageAspect)
 {
     if (len == 0 || len > (16u << 20))
-        return QImage();
+        return QSize();
 
     int bestW = 0, bestH = 0;
     double bestErr = 1e9;
@@ -50,15 +82,20 @@ QImage depthFromRaw(const uint8_t* bytes, size_t len, double imageAspect)
         }
     }
     // A real depth map matches the still closely; reject anything else.
-    if (bestW == 0 || bestErr > 0.02)
-        return QImage();
+    return (bestW && bestErr <= 0.02) ? QSize(bestW, bestH) : QSize();
+}
 
-    QImage depth(reinterpret_cast<const uchar*>(bytes), bestW, bestH, bestW,
-                 QImage::Format_Grayscale8);
-    // Samsung stores distance (bright = far); the viewers want disparity.
-    depth = depth.copy();
-    depth.invertPixels();
-    return depth;
+// FocusShot_Map is two stacked half-resolution planes: a hard subject mask and a
+// soft depth map. FocusShot_Meta_Info ("FCSS") carries the still's size at +44.
+QSize focusShotPlaneSize(const uint8_t* meta, size_t metaLen, size_t mapLen)
+{
+    if (metaLen < 52 || std::memcmp(meta, "FCSS", 4) != 0)
+        return QSize();
+    const int w = int(le32(meta + 44)) / 2;
+    const int h = int(le32(meta + 48)) / 2;
+    if (w <= 0 || h <= 0 || size_t(w) * h * 2 != mapLen)
+        return QSize();
+    return QSize(w, h);
 }
 
 // Depth is stored in sensor orientation; the still is shown through
@@ -151,6 +188,9 @@ void JpegManager::manageJpeg()
             return  static_cast<uint32_t>(data[at])          | (static_cast<uint32_t>(data[at + 1]) << 8)
             | (static_cast<uint32_t>(data[at + 2]) << 16) | (static_cast<uint32_t>(data[at + 3]) << 24);
         };
+        size_t depthStart = 0, depthLen = 0, metaStart = 0, metaLen = 0;
+        bool   depthIsFocusShot = false;
+
         const uint32_t dirLen = u32(n - 8);
         if (static_cast<uint64_t>(dirLen) + 8 <= n)
         {
@@ -180,19 +220,19 @@ void JpegManager::manageJpeg()
                     if (name.starts_with("Panorama_Shot_Info") || name.starts_with("Motion_Panorama"))
                         m_panoramaShot = true;
 
-                    // Live Focus shots carry the depth map beside the stills.
-                    if (m_depthMap.isNull() && name.starts_with("DualShot_DepthMap"))
+                    // The map and the record describing it can appear in either
+                    // order, so the spans are collected and resolved after the walk.
+                    if (name.starts_with("DualShot_DepthMap") || name == "FocusShot_Map")
                     {
-                        const double aspect = m_imageEXIF.ImageHeight
-                            ? double(m_imageEXIF.ImageWidth) / double(m_imageEXIF.ImageHeight) : 0.0;
-                        m_depthMap = depthFromRaw(data.data() + payloadStart,
-                                                  blockEnd - payloadStart, aspect);
-                        if (!m_depthMap.isNull())
-                        {
-                            m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
-                            qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
-                                     << "orientation" << m_imageEXIF.Orientation;
-                        }
+                        depthStart = payloadStart;
+                        depthLen   = blockEnd - payloadStart;
+                        depthIsFocusShot = (name == "FocusShot_Map");
+                        continue;
+                    }
+                    if (name == "DualShot_Extra_Info" || name == "FocusShot_Meta_Info")
+                    {
+                        metaStart = payloadStart;
+                        metaLen   = blockEnd - payloadStart;
                         continue;
                     }
 
@@ -207,6 +247,48 @@ void JpegManager::manageJpeg()
                         m_videoFillsStill = name.starts_with("MotionPhoto");
                         if (!m_videoFillsStill)
                             m_videoExtraRotation = rotationForClip(name);
+                    }
+                }
+
+                if (depthLen)
+                {
+                    const uint8_t* map = data.data() + depthStart;
+                    const uint8_t* meta = metaLen ? data.data() + metaStart : nullptr;
+                    bool brightIsNear = false;
+                    QSize size;
+
+                    if (depthIsFocusShot)
+                    {
+                        // Selective Focus: a subject mask then a soft depth map,
+                        // the second of which is the useful one. Bright is near
+                        // here, the opposite of DualShot.
+                        size = meta ? focusShotPlaneSize(meta, metaLen, depthLen) : QSize();
+                        if (size.isValid())
+                        {
+                            map += size_t(size.width()) * size.height();   // skip the mask
+                            brightIsNear = true;
+                        }
+                    }
+                    else
+                    {
+                        size = meta ? dualShotDepthSize(meta, metaLen, depthLen) : QSize();
+                        if (!size.isValid())
+                        {
+                            const double aspect = m_imageEXIF.ImageHeight
+                                ? double(m_imageEXIF.ImageWidth) / double(m_imageEXIF.ImageHeight) : 0.0;
+                            size = guessDepthSize(depthLen, aspect);
+                        }
+                    }
+
+                    if (size.isValid())
+                    {
+                        m_depthMap = grayFromRaw(map, size.width(), size.height());
+                        if (!brightIsNear)
+                            m_depthMap.invertPixels();   // stored as distance
+                        m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
+                        qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
+                                 << (depthIsFocusShot ? "(FocusShot)" : "(DualShot)")
+                                 << "orientation" << m_imageEXIF.Orientation;
                     }
                 }
             }
