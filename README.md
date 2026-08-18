@@ -93,8 +93,10 @@ so a file reaching across layers is visible in the diff.
 
 ## Prerequisites
 
-- **Qt 6.5 or newer** (6.11 recommended). The build is tested with
-  **Qt 6.11.1 MSVC 2022 64-bit** on Windows and Qt 6 for macOS.
+- **Qt 6.8.1 or newer.** Releases are built against **6.8.1** on all three
+  platforms -- it is the newest Qt that Ubuntu supports, so the .deb cannot go
+  above it, and nothing older than it is tested. Local builds also work with
+  6.11.1 (Windows MSVC 2022 64-bit and macOS).
   Required modules: Core, Gui, Widgets, Multimedia, MultimediaWidgets, OpenGL,
   OpenGLWidgets.
 - **CMake ≥ 3.21** and **Ninja** (both ship with Qt under `Tools/`).
@@ -163,10 +165,32 @@ macOS-specific behaviour is wired in: **pinch-to-zoom** on the thumbnail grid an
 
 ### Linux — command line
 
+Distro packages are too old (Ubuntu 22.04 ships Qt 6.2), so install 6.8.1 into
+your home directory -- the same way CI does:
+
+```bash
+pip3 install --user aqtinstall
+aqt install-qt linux desktop 6.8.1 linux_gcc_64 -m qtmultimedia -O ~/Qt
+```
+
+Build dependencies:
+
+```bash
+sudo apt-get install -y build-essential ninja-build cmake file patchelf \
+     desktop-file-utils imagemagick libgl1-mesa-dev libxkbcommon-dev libxcb-cursor0
+```
+
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_PREFIX_PATH=~/Qt/6.11.1/gcc_64
+      -DCMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_64
 cmake --build build
+```
+
+To build the .deb exactly as the release does (linuxdeploy bundles Qt into
+`/opt/mobilephotoviewer`, so it runs without a system Qt):
+
+```bash
+CMAKE_PREFIX_PATH=~/Qt/6.8.1/gcc_64 ./installer/linux/build_deb.sh 1.1.0
 ```
 
 "Show in Explorer" opens the containing folder via `xdg-open`.
