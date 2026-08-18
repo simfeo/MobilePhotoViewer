@@ -139,6 +139,7 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     Tools/heifboxes.cpp          Tools/heifboxes.h
     Tools/heifreader.cpp         Tools/heifreader.h
     Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
+    Tools/jpegrepair.cpp         Tools/jpegrepair.h
     Tools/ramfile.cpp            Tools/ramfile.h
     # EXIF/XMP parsing (TinyEXIF fork with motion-photo support) + its tinyxml2
     # dependency, compiled straight in from the third_party submodules.

@@ -5,6 +5,7 @@
 #include <QHeaderView>
 #include <QImage>
 #include <QImageReader>
+#include "Tools/jpegrepair.h"
 #include <QPixmap>
 #include <QFile>
 #include <QFileInfo>
@@ -53,9 +54,7 @@ QImage MetadataPanel::loadImage(const QString& path) const
         }
         return QImage();
     }
-    QImageReader reader(path);
-    reader.setAutoTransform(true);
-    return reader.read();
+    return JpegRepair::read(path, true);
 }
 
 bool MetadataPanel::event(QEvent* event)

@@ -38,6 +38,7 @@
 
 #include "panoramawidget.h"
 #include "depthwidget.h"
+#include "Tools/jpegrepair.h"
 #include "metadatapanel.h"
 #include "folderbrowserpanel.h"
 
@@ -386,9 +387,7 @@ void MainWindow::showPanorama()
     if (!m_isPano)
         return;
 
-    QImageReader r(m_currentPath);
-    r.setAutoTransform(true);
-    QImage img = r.read();
+    QImage img = JpegRepair::read(m_currentPath, true);
     if (img.isNull())
         return;
 
@@ -473,9 +472,7 @@ void MainWindow::showDepth()
     if (!m_imageManager || !m_imageManager->HasDepthMap())
         return;
 
-    QImageReader r(m_currentPath);
-    r.setAutoTransform(true);
-    QImage img = r.read();
+    QImage img = JpegRepair::read(m_currentPath, true);
     if (img.isNull())
         return;
 
@@ -501,9 +498,7 @@ void MainWindow::SetImage(const QString& imgPath)
     ui->photoVidget->SetPlayButtonVisible(false);
     ui->photoVidget->SetPanoramaButtonVisible(false);
     ui->photoVidget->SetDepthButtonVisible(false);
-    QImageReader imgReader(imgPath);
-    imgReader.setAutoTransform(true);
-    QImage qimg = imgReader.read();
+    QImage qimg = JpegRepair::read(imgPath, true);
     m_currentPath = imgPath;
 
     ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));

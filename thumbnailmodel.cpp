@@ -2,6 +2,7 @@
 
 #include <QThreadPool>
 #include <QImageReader>
+#include "Tools/jpegrepair.h"
 #include <QFileInfo>
 #include <QFileInfoList>
 #include <QFileIconProvider>
@@ -191,15 +192,7 @@ void ThumbnailModel::requestThumbnail(const QString& path) const
         }
         else
         {
-            QImageReader reader(path);
-            reader.setAutoTransform(true);
-            QSize s = reader.size();
-            if (s.isValid())
-            {
-                s.scale(box, box, Qt::KeepAspectRatio);
-                reader.setScaledSize(s);
-            }
-            img = reader.read();
+            img = JpegRepair::read(path, true, box);
         }
         QMetaObject::invokeMethod(self, "onThumbnailReady", Qt::QueuedConnection,
                                   Q_ARG(QString, path), Q_ARG(QImage, img));
