@@ -2,6 +2,7 @@
 #define IMAGEWITHVIDEOBASE_H
 
 #include <QBuffer>
+#include <QImage>
 
 class ImageWithVideoBase
 {
@@ -10,6 +11,10 @@ public:
 
     bool HasMicrovideo();
     std::shared_ptr<QBuffer> getVideoMemory();
+
+    // 8-bit grayscale, white nearest the camera; null when the shot has no depth.
+    bool HasDepthMap() const;
+    QImage getDepthMap() const;
 
 
     virtual size_t getWidth() const
@@ -29,6 +34,7 @@ public:
 
 protected:
     std::shared_ptr<QBuffer>    m_memoryVideo;
+    QImage                      m_depthMap;
 };
 
 #endif // IMAGEWITHVIDEOBASE_H

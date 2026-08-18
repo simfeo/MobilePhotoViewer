@@ -6,14 +6,12 @@
 #include <cmath>
 
 namespace {
-// Grid density. The displacement can only bend the image where there is a
-// vertex, so cells are kept near this many pixels wide, within sane bounds.
+// The warp can only bend the image at a vertex, hence the cell size.
 constexpr int kTargetCellPx = 4;
 constexpr int kMinCells     = 64;
 constexpr int kMaxCells     = 512;
 
-// How far the auto orbit travels relative to a full drag, and its period.
-constexpr float kOrbitScale     = 0.55f;
+constexpr float kOrbitScale     = 0.9f;
 constexpr double kOrbitPeriodSec = 7.0;
 }   // namespace
 
@@ -49,8 +47,7 @@ void DepthWidget::setImage(const QImage& color, const QImage& depth)
     }
 
     m_pendingColor = color.convertToFormat(QImage::Format_RGB888);
-    // Normalising to 8-bit grayscale here means the mesh builder has a single
-    // format to read, whatever the depth map arrived as (16-bit PNG, JPEG, ...).
+    // One format for the mesh builder, whatever the map arrived as.
     m_pendingDepth = depth.isNull() ? QImage()
                                     : depth.convertToFormat(QImage::Format_Grayscale8);
     m_aspect = color.height() > 0 ? float(color.width()) / float(color.height()) : 1.0f;
@@ -87,17 +84,17 @@ void DepthWidget::clear()
 
 void DepthWidget::setAmplitude(float a)
 {
-    m_amplitude = std::clamp(a, 0.0f, 0.15f);
+    m_amplitude = std::clamp(a, 0.0f, 0.25f);
     update();
 }
 
-void DepthWidget::setFocus(float f)
+void DepthWidget::setFocusPlane(float f)
 {
     m_focus = std::clamp(f, 0.0f, 1.0f);
     if (m_hasImage && context() && isValid())
     {
         makeCurrent();
-        buildMesh();       // focus is baked into the vertex disparity
+        buildMesh();       // focus is baked per vertex
         doneCurrent();
     }
     update();
@@ -141,7 +138,6 @@ void DepthWidget::uploadPending()
 
 void DepthWidget::buildMesh()
 {
-    // Vertex layout: x, y, u, v, signedDisparity.
     const bool haveDepth = !m_disparity.isNull();
     const int dw = haveDepth ? m_disparity.width()  : 1;
     const int dh = haveDepth ? m_disparity.height() : 1;
@@ -166,11 +162,11 @@ void DepthWidget::buildMesh()
                 const int sy = std::min(int(v * dh), dh - 1);
                 disparity = m_disparity.constScanLine(sy)[sx] / 255.0f;
             }
-            verts.push_back(u * 2.0f - 1.0f);        // x, -1..1
-            verts.push_back(1.0f - v * 2.0f);        // y, +1 at the top
+            verts.push_back(u * 2.0f - 1.0f);
+            verts.push_back(1.0f - v * 2.0f);
             verts.push_back(u);
-            verts.push_back(v);                      // QImage row 0 is the top
-            verts.push_back(disparity - m_focus);    // signed, so the focus plane stays put
+            verts.push_back(v);
+            verts.push_back(disparity - m_focus);
         }
     }
 
@@ -202,9 +198,7 @@ void DepthWidget::initializeGL()
 {
     initializeOpenGLFunctions();
 
-    // The vertex shader does the whole warp: shift in x/y by the signed
-    // disparity, and bias z by it so nearer geometry wins the depth test where
-    // the sheet folds over itself.
+    // z is biased by disparity so nearer geometry wins where the sheet folds over.
     m_program.addShaderFromSourceCode(QOpenGLShader::Vertex,
         "attribute vec2 aPos;\n"
         "attribute vec2 aUV;\n"
@@ -246,9 +240,7 @@ void DepthWidget::paintGL()
         m_offset = offset;   // so a drag picks up where the orbit left off
     }
 
-    // Fit the image inside the widget without distorting it, and restrict drawing
-    // to that rectangle. The mesh is then drawn slightly oversized, so the ragged
-    // warped border is clipped away by the viewport instead of being visible.
+    // Draw oversized into a fitted viewport, so the ragged warped border is clipped.
     const qreal dpr = devicePixelRatioF();
     const int fbW = int(width() * dpr);
     const int fbH = int(height() * dpr);
@@ -260,7 +252,9 @@ void DepthWidget::paintGL()
     }
     glViewport((fbW - vw) / 2, (fbH - vh) / 2, vw, vh);
 
-    const float overscan = 1.0f + m_amplitude * 4.0f;
+    // A vertex moves at most amplitude*2*|disparity-focus| in NDC, so a little
+    // over the amplitude is enough margin -- more just crops the photo for nothing.
+    const float overscan = 1.0f + m_amplitude * 1.6f;
     QMatrix4x4 mvp;
     mvp.ortho(-1.0f, 1.0f, -1.0f, 1.0f, -2.0f, 2.0f);
     mvp.scale(overscan, overscan, 1.0f);
@@ -306,7 +300,6 @@ void DepthWidget::mousePressEvent(QMouseEvent* e)
         return;
     m_dragging = true;
     m_pressPos = e->pos();
-    // Continue from wherever the orbit had drifted to, so grabbing doesn't jump.
     m_pressOffset = m_offset;
     setCursor(Qt::ClosedHandCursor);
 }
@@ -324,6 +317,20 @@ void DepthWidget::mouseReleaseEvent(QMouseEvent* e)
     m_dragging = false;
     unsetCursor();
     update();
+}
+
+void DepthWidget::showEvent(QShowEvent* e)
+{
+    QOpenGLWidget::showEvent(e);
+    if (m_autoOrbit && m_hasImage)
+        m_orbitTimer.start();
+}
+
+void DepthWidget::hideEvent(QHideEvent* e)
+{
+    // Leaving the mode: stop driving repaints until it is shown again.
+    m_orbitTimer.stop();
+    QOpenGLWidget::hideEvent(e);
 }
 
 void DepthWidget::leaveEvent(QEvent* e)

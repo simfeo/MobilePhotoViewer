@@ -96,6 +96,26 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     panoLayout->addWidget(m_panoButton);
     m_panoPill->hide();
 
+    // Depth overlay (Samsung Live Focus shots): opens the parallax viewer.
+    m_depthButton = new QPushButton(this);
+    m_depthButton->setText("3D");
+    m_depthButton->setCursor(Qt::PointingHandCursor);
+    m_depthButton->setStyleSheet(kPillButtonQss);
+    connect(m_depthButton, &QPushButton::clicked, this, [this]{ emit depthRequested(); });
+
+    m_depthLabel = new QLabel(this);
+    m_depthLabel->setStyleSheet(kPillLabelQss);
+
+    m_depthPill = new QFrame(this);
+    m_depthPill->setObjectName("depthPill");
+    m_depthPill->setStyleSheet("#depthPill{background:rgba(0,0,0,140);border-radius:15px;}");
+    auto* depthLayout = new QHBoxLayout(m_depthPill);
+    depthLayout->setContentsMargins(5, 4, 5, 4);
+    depthLayout->setSpacing(4);
+    depthLayout->addWidget(m_depthLabel);
+    depthLayout->addWidget(m_depthButton);
+    m_depthPill->hide();
+
     m_player = new QMediaPlayer(this);
     m_audioOutput = new QAudioOutput(this);
     m_player->setAudioOutput(m_audioOutput);
@@ -140,6 +160,7 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
     retranslateControls();
     m_panoPill->hide();
+    m_depthPill->hide();
     update();
 }
 
@@ -255,8 +276,10 @@ void ImageRenderWidget::retranslateControls()
     m_ui->playButton->setToolTip(playing ? tr("Pause") : tr("Play"));
     m_muteButton->setToolTip(m_audioOutput->isMuted() ? tr("Unmute") : tr("Mute"));
     m_panoButton->setToolTip(tr("View panorama"));
+    m_depthButton->setToolTip(tr("View in 3D"));
     m_motionLabel->setText(tr("Motion"));
     m_panoLabel->setText(tr("Panorama"));
+    m_depthLabel->setText(tr("Depth"));
     positionPlayButton();   // a translated label changes the pill's width
 }
 
@@ -269,12 +292,12 @@ void ImageRenderWidget::changeEvent(QEvent* event)
 
 void ImageRenderWidget::positionPlayButton()
 {
-    // Both pills sit in the photo's top-left corner, inset a little. Only one is
-    // ever visible (a photo is a motion clip or a panorama, not both).
+    // The pills sit in the photo's top-left corner, inset a little. Only one is
+    // ever visible (a photo is a motion clip, a panorama or a depth shot).
     const QRect img = currentImageRect();
     if (img.isNull())
         return;
-    for (QFrame* pill : { m_motionPill, m_panoPill })
+    for (QFrame* pill : { m_motionPill, m_panoPill, m_depthPill })
     {
         pill->adjustSize();
         pill->move(img.left() + 12, img.top() + 12);
@@ -287,6 +310,14 @@ void ImageRenderWidget::SetPanoramaButtonVisible(bool state)
     m_panoPill->setVisible(state);
     if (state)
         m_panoPill->raise();
+}
+
+void ImageRenderWidget::SetDepthButtonVisible(bool state)
+{
+    positionPlayButton();
+    m_depthPill->setVisible(state);
+    if (state)
+        m_depthPill->raise();
 }
 
 void ImageRenderWidget::paintEvent(QPaintEvent* event)

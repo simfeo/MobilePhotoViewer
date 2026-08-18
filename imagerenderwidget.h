@@ -36,6 +36,7 @@ public:
     void SetPixmap(const QPixmap& image);
     void SetPlayButtonVisible(bool state);
     void SetPanoramaButtonVisible(bool state);
+    void SetDepthButtonVisible(bool state);
     void SetVideoManager(std::shared_ptr<QBuffer> videoBuff);
 
     void zoomIn();
@@ -48,6 +49,7 @@ signals:
     void playVideoButtonClickedSignal();
     void backRequested();          // double-click in the viewer -> back to browsing
     void panoramaRequested();      // the "360" overlay button was clicked
+    void depthRequested();         // the "3D" overlay button was clicked
 
 private slots:
     void on_playButton_clicked();
@@ -100,8 +102,8 @@ private:
     QPoint  m_dragLast;
     bool    m_hasVideo;      // a motion-photo clip is loaded
 
-    // Overlay pills in the photo's top-left. A photo is either a motion clip or
-    // a panorama, not both, so only one of these is ever visible.
+    // Overlay pills in the photo's top-left. Only one is ever visible: a photo is
+    // a motion clip, a panorama or a depth shot, never two at once.
     //
     // Motion: "Motion" label + play/pause (m_ui->playButton, reparented in) + mute.
     QFrame*      m_motionPill;
@@ -111,6 +113,10 @@ private:
     QFrame*      m_panoPill;
     QLabel*      m_panoLabel;
     QPushButton* m_panoButton;
+    // Depth: "Depth" label + a "3D" button that opens the parallax viewer.
+    QFrame*      m_depthPill;
+    QLabel*      m_depthLabel;
+    QPushButton* m_depthButton;
 };
 
 #endif // IMAGERENDERWIDGET_H

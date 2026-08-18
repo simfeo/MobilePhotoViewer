@@ -21,6 +21,7 @@ class QKeyEvent;
 class QStackedWidget;
 class QAction;
 class PanoramaWidget;
+class DepthWidget;
 class MetadataPanel;
 class FolderBrowserPanel;
 
@@ -62,6 +63,7 @@ private:
     void restoreLayout();   // capture default state, then apply any saved layout
     bool detectPanorama(const QString& path);   // fills m_pano* if equirectangular
     void showPanorama();                        // build the sphere and switch to it
+    void showDepth();                           // feed the parallax viewer and switch to it
     void showViewMode();
     void showBrowseMode();
     void setFullScreenView(bool on);
@@ -83,6 +85,7 @@ private:
     QAction*            m_fullScreenAction;
     QAction*            m_saveVideoAction;
     PanoramaWidget*     m_pano;
+    DepthWidget*        m_depth;
 
     // current image's panorama metadata (valid when m_isPano)
     bool m_isPano = false;

@@ -8,6 +8,16 @@
 #include <string_view>
 #include <span>
 #include <algorithm>  // std::ranges::equal
+#include <cmath>
+#include <QTransform>
+
+// flipped() exists only from Qt 6.9; the project still targets 6.5.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+#  define MPV_FLIP(img, h, v) ((img).flipped((h ? Qt::Horizontal : Qt::Orientations()) \
+                                           | (v ? Qt::Vertical   : Qt::Orientations())))
+#else
+#  define MPV_FLIP(img, h, v) ((img).mirrored(h, v))
+#endif
 
 
 JpegManager::JpegManager(const QString& imgPath)
@@ -15,6 +25,61 @@ JpegManager::JpegManager(const QString& imgPath)
 {
     manageJpeg();
 }
+
+namespace {
+// The DualShot depth block stores no geometry, so the dimensions are recovered by
+// factorising its length and matching the still's aspect (1024x576 on the S22).
+QImage depthFromRaw(const uint8_t* bytes, size_t len, double imageAspect)
+{
+    if (len == 0 || len > (16u << 20))
+        return QImage();
+
+    int bestW = 0, bestH = 0;
+    double bestErr = 1e9;
+    for (size_t w = 16; w <= len / 16; ++w)
+    {
+        if (len % w)
+            continue;
+        const size_t h = len / w;
+        const double err = std::abs(double(w) / double(h) - imageAspect);
+        if (err < bestErr)
+        {
+            bestErr = err;
+            bestW = int(w);
+            bestH = int(h);
+        }
+    }
+    // A real depth map matches the still closely; reject anything else.
+    if (bestW == 0 || bestErr > 0.02)
+        return QImage();
+
+    QImage depth(reinterpret_cast<const uchar*>(bytes), bestW, bestH, bestW,
+                 QImage::Format_Grayscale8);
+    // Samsung stores distance (bright = far); the viewers want disparity.
+    depth = depth.copy();
+    depth.invertPixels();
+    return depth;
+}
+
+// Depth is stored in sensor orientation; the still is shown through
+// setAutoTransform, so it needs the same rotation or portrait shots disagree.
+QImage applyExifOrientation(const QImage& img, uint32_t orientation)
+{
+    QTransform t;
+    switch (orientation)
+    {
+    case 2: return MPV_FLIP(img, true, false);
+    case 3: t.rotate(180); break;
+    case 4: return MPV_FLIP(img, false, true);
+    case 5: t.rotate(90);  return MPV_FLIP(img, true, false).transformed(t);
+    case 6: t.rotate(90);  break;
+    case 7: t.rotate(270); return MPV_FLIP(img, true, false).transformed(t);
+    case 8: t.rotate(270); break;
+    default: return img;   // 1, or absent/unknown
+    }
+    return img.transformed(t);
+}
+}   // namespace
 
 void JpegManager::manageJpeg()
 {
@@ -66,7 +131,7 @@ void JpegManager::manageJpeg()
     // The video is the block whose data begins with an ISO-BMFF 'ftyp' box -- that
     // covers MotionPhoto / Motion-Panorama and mp4 / 3gp alike, without depending on
     // the (varying) block name.
-    if (!m_memoryVideo && data.size() >= 12 && magicAt(data.size() - 4, "SEFT"))
+    if (data.size() >= 12 && magicAt(data.size() - 4, "SEFT"))
     {
         const size_t n = data.size();
         auto u32 = [&data](size_t at) {
@@ -93,16 +158,34 @@ void JpegManager::manageJpeg()
                     if (blockStart + 8 > n || blockEnd > n)
                         continue;
                     const uint32_t nameLen  = u32(blockStart + 4);
-                    const size_t videoStart = blockStart + 8 + nameLen;
-                    if (videoStart + 8 > blockEnd)
+                    const size_t payloadStart = blockStart + 8 + nameLen;
+                    if (payloadStart + 8 > blockEnd || blockStart + 8 + nameLen > n)
                         continue;
-                    if (magicAt(videoStart + 4, "ftyp"))  // ISO-BMFF video
+                    const std::string_view name(reinterpret_cast<const char*>(data.data() + blockStart + 8),
+                                                nameLen);
+
+                    // Live Focus shots carry the depth map beside the stills.
+                    if (m_depthMap.isNull() && name.starts_with("DualShot_DepthMap"))
                     {
-                        qDebug() << "Samsung SEF motion photo: video bytes [" << videoStart << ".." << blockEnd << "]";
+                        const double aspect = m_imageEXIF.ImageHeight
+                            ? double(m_imageEXIF.ImageWidth) / double(m_imageEXIF.ImageHeight) : 0.0;
+                        m_depthMap = depthFromRaw(data.data() + payloadStart,
+                                                  blockEnd - payloadStart, aspect);
+                        if (!m_depthMap.isNull())
+                        {
+                            m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
+                            qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
+                                     << "orientation" << m_imageEXIF.Orientation;
+                        }
+                        continue;
+                    }
+
+                    if (!m_memoryVideo && magicAt(payloadStart + 4, "ftyp"))  // ISO-BMFF video
+                    {
+                        qDebug() << "Samsung SEF motion photo: video bytes [" << payloadStart << ".." << blockEnd << "]";
                         m_memoryVideo.reset(new QBuffer());
-                        m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + videoStart),
-                                               static_cast<int>(blockEnd - videoStart));
-                        break;
+                        m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + payloadStart),
+                                               static_cast<int>(blockEnd - payloadStart));
                     }
                 }
             }

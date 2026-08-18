@@ -37,6 +37,7 @@
 #include <TinyEXIF.h>
 
 #include "panoramawidget.h"
+#include "depthwidget.h"
 #include "metadatapanel.h"
 #include "folderbrowserpanel.h"
 
@@ -109,7 +110,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
 void MainWindow::setupBrowser()
 {
     // Central stack: [0] thumbnail grid (browse), [1] the image/video viewer,
-    // [2] the photosphere. The folder browser owns the grid; we just place it.
+    // [2] the photosphere, [3] the depth-parallax viewer. The folder browser owns the grid; we just place it.
     m_stack = new QStackedWidget(this);
     m_browser = new FolderBrowserPanel(this);
 
@@ -118,6 +119,8 @@ void MainWindow::setupBrowser()
     m_stack->addWidget(ui->photoVidget);           // index 1
     m_pano = new PanoramaWidget(m_stack);
     m_stack->addWidget(m_pano);                    // index 2 (photospheres)
+    m_depth = new DepthWidget(m_stack);
+    m_stack->addWidget(m_depth);                   // index 3 (depth parallax)
 
     // Navigation + sort toolbar sits directly above the content pane (not across
     // the whole window over the docks), like ACDSee's location/sort bar.
@@ -167,6 +170,7 @@ void MainWindow::setupBrowser()
     });
     connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
     connect(ui->photoVidget, &ImageRenderWidget::panoramaRequested, this, &MainWindow::showPanorama);
+    connect(ui->photoVidget, &ImageRenderWidget::depthRequested, this, &MainWindow::showDepth);
 
     // Toolbar +/- : zoom whatever the central stack is currently showing.
     connect(m_browser, &FolderBrowserPanel::zoomRequested, this, [this](int steps) {
@@ -464,6 +468,27 @@ void MainWindow::showPanorama()
     m_pano->setFocus();
 }
 
+void MainWindow::showDepth()
+{
+    if (!m_imageManager || !m_imageManager->HasDepthMap())
+        return;
+
+    QImageReader r(m_currentPath);
+    r.setAutoTransform(true);
+    QImage img = r.read();
+    if (img.isNull())
+        return;
+
+    // The still is far larger than the parallax needs, and it becomes a texture.
+    const int maxW = 4096;
+    if (img.width() > maxW)
+        img = img.scaledToWidth(maxW, Qt::SmoothTransformation);
+
+    m_depth->setImage(img, m_imageManager->getDepthMap());
+    m_stack->setCurrentWidget(m_depth);
+    m_depth->setFocus();
+}
+
 // --------------------------------------------------------------------------
 // Viewing
 // --------------------------------------------------------------------------
@@ -475,6 +500,7 @@ void MainWindow::SetImage(const QString& imgPath)
 
     ui->photoVidget->SetPlayButtonVisible(false);
     ui->photoVidget->SetPanoramaButtonVisible(false);
+    ui->photoVidget->SetDepthButtonVisible(false);
     QImageReader imgReader(imgPath);
     imgReader.setAutoTransform(true);
     QImage qimg = imgReader.read();
@@ -508,6 +534,8 @@ void MainWindow::SetImage(const QString& imgPath)
 
     // Equirectangular panoramas open flat, with a 360 button to enter the sphere.
     ui->photoVidget->SetPanoramaButtonVisible(detectPanorama(imgPath));
+    // Live Focus shots open flat too, with a 3D button to enter the parallax view.
+    ui->photoVidget->SetDepthButtonVisible(m_imageManager->HasDepthMap());
 
     // Keep the side panels in sync with whatever image is on screen -- this also
     // covers paths that bypass grid selection (drag & drop, Open File, stepImage).
@@ -703,8 +731,10 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     {
         if (isFullScreen())
             setFullScreenView(false);
+        else if (m_stack->currentWidget() == m_pano || m_stack->currentWidget() == m_depth)
+            showViewMode();     // the immersive modes step back to the still first
         else if (m_stack->currentWidget() != m_browser->gridWidget())
-            showBrowseMode();   // back to the thumbnails (from image or pano view)
+            showBrowseMode();   // and the still goes back to the thumbnails
     }
     else if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
     {
