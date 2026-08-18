@@ -1,8 +1,8 @@
 #include "folderbrowserpanel.h"
-#include "explorerselectiondelegate.h"
-#include "thumbnailmodel.h"
-#include "locationbar.h"
-#include "gridcontextmenu.h"
+#include "browser/explorerselectiondelegate.h"
+#include "browser/thumbnailmodel.h"
+#include "widgets/locationbar.h"
+#include "browser/gridcontextmenu.h"
 
 #include <QListView>
 #include <QTreeView>

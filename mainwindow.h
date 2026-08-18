@@ -4,8 +4,8 @@
 #include <QMainWindow>
 #include <QString>
 #include <QByteArray>
-#include <Tools/imagewithvideobase.h>
-#include "i18n.h"
+#include "formats/imagewithvideobase.h"
+#include "app/i18n.h"
 
 
 QT_BEGIN_NAMESPACE

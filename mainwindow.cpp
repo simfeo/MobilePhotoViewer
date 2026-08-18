@@ -32,19 +32,19 @@
 
 #include <functional>
 
-#include <jpegmanager.h>
-#include <heifmanager.h>
+#include "formats/jpegmanager.h"
+#include "formats/heifmanager.h"
 #include <TinyEXIF.h>
 
-#include "panoramawidget.h"
-#include "depthwidget.h"
-#include "Tools/jpegrepair.h"
-#include "metadatapanel.h"
-#include "folderbrowserpanel.h"
+#include "widgets/panoramawidget.h"
+#include "widgets/depthwidget.h"
+#include "formats/jpegrepair.h"
+#include "widgets/metadatapanel.h"
+#include "browser/folderbrowserpanel.h"
 
 #include <QTimer>
-#include "settingsdialog.h"
-#include "appsettings.h"
+#include "app/settingsdialog.h"
+#include "app/appsettings.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)

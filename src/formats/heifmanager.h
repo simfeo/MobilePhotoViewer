@@ -4,7 +4,7 @@
 #include <QString>
 #include <memory>
 
-#include <Tools/imagewithvideobase.h>
+#include "imagewithvideobase.h"
 #include <TinyEXIF.h>
 
 namespace JpegUtils

@@ -6,7 +6,7 @@
 #include <QStringList>
 #include <QFileInfoList>
 
-#include "i18n.h"
+#include "app/i18n.h"
 
 class QWidget;
 class QListView;

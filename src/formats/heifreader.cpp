@@ -1,6 +1,6 @@
 #include "heifreader.h"
 
-#include <Tools/ramfile.h>
+#include "ramfile.h"
 
 #include <string>
 #include <string_view>

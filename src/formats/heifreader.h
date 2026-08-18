@@ -1,7 +1,7 @@
 #ifndef HEIFREADER_H
 #define HEIFREADER_H
 
-#include <Tools/heifboxes.h>
+#include "heifboxes.h"
 
 #include <fstream>
 #include <vector>

@@ -123,31 +123,39 @@ qt_standard_project_setup()  # enables AUTOMOC / AUTOUIC / AUTORCC for the app
 qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     main.cpp
     mainwindow.cpp        mainwindow.h        mainwindow.ui
-    imagerenderwidget.cpp imagerenderwidget.h imagerenderwidget.ui
-    heifmanager.cpp       heifmanager.h
-    jpegmanager.cpp       jpegmanager.h
-    thumbnailmodel.cpp    thumbnailmodel.h
-    panoramawidget.cpp    panoramawidget.h
-    depthwidget.cpp       depthwidget.h
-    metadatapanel.cpp     metadatapanel.h
-    folderbrowserpanel.cpp folderbrowserpanel.h
-    locationbar.cpp       locationbar.h
-    gridcontextmenu.cpp   gridcontextmenu.h
-    settingsdialog.cpp    settingsdialog.h
-    appsettings.cpp       appsettings.h
-    i18n.cpp              i18n.h
-    Tools/heifboxes.cpp          Tools/heifboxes.h
-    Tools/heifreader.cpp         Tools/heifreader.h
-    Tools/imagewithvideobase.cpp Tools/imagewithvideobase.h
-    Tools/jpegrepair.cpp         Tools/jpegrepair.h
-    Tools/ramfile.cpp            Tools/ramfile.h
+
+    # On-screen widgets: the stack's pages plus the small reusable ones.
+    src/widgets/imagerenderwidget.cpp src/widgets/imagerenderwidget.h src/widgets/imagerenderwidget.ui
+    src/widgets/panoramawidget.cpp    src/widgets/panoramawidget.h
+    src/widgets/depthwidget.cpp       src/widgets/depthwidget.h
+    src/widgets/locationbar.cpp       src/widgets/locationbar.h
+    src/widgets/metadatapanel.cpp     src/widgets/metadatapanel.h
+
+    # The file-browsing half: the grid, its model and its decorations.
+    src/browser/folderbrowserpanel.cpp       src/browser/folderbrowserpanel.h
+    src/browser/thumbnailmodel.cpp           src/browser/thumbnailmodel.h
+    src/browser/gridcontextmenu.cpp          src/browser/gridcontextmenu.h
+    src/browser/explorerselectiondelegate.cpp src/browser/explorerselectiondelegate.h
+
+    # Reading what phones write: containers, motion clips, depth maps. No UI.
+    src/formats/jpegmanager.cpp        src/formats/jpegmanager.h
+    src/formats/heifmanager.cpp        src/formats/heifmanager.h
+    src/formats/imagewithvideobase.cpp src/formats/imagewithvideobase.h
+    src/formats/jpegrepair.cpp         src/formats/jpegrepair.h
+    src/formats/heifboxes.cpp          src/formats/heifboxes.h
+    src/formats/heifreader.cpp         src/formats/heifreader.h
+    src/formats/ramfile.cpp            src/formats/ramfile.h
+
+    # Settings and translation plumbing.
+    src/app/appsettings.cpp    src/app/appsettings.h
+    src/app/i18n.cpp           src/app/i18n.h
+    src/app/settingsdialog.cpp src/app/settingsdialog.h
     # EXIF/XMP parsing (TinyEXIF fork with motion-photo support) + its tinyxml2
     # dependency, compiled straight in from the third_party submodules.
     third_party/TinyEXIF/TinyEXIF.cpp   third_party/TinyEXIF/TinyEXIF.h
     third_party/tinyxml2/tinyxml2.cpp   third_party/tinyxml2/tinyxml2.h
     resources/appicon.qrc               # window icon (Qt resource)
     $<$<BOOL:${WIN32}>:resources/app.rc>
-    explorerselectiondelegate.h explorerselectiondelegate.cpp # taskbar/exe icon (Windows)
 )
 
 # macOS: the Dock/Finder icon comes from an .icns bundled into the .app and
@@ -185,7 +193,8 @@ qt_add_translations(MobilePhotoViewer
 )
 
 target_include_directories(MobilePhotoViewer PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"                                # <jpegmanager.h>, <Tools/...>
+    "${CMAKE_CURRENT_SOURCE_DIR}"                                # "mainwindow.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"                            # "formats/jpegmanager.h" etc.
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/TinyEXIF"          # <TinyEXIF.h>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyxml2"          # <tinyxml2.h>
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif/libheif/api"  # <libheif/heif.h>, <libheif/heif_cxx.h>

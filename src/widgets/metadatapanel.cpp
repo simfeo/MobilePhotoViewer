@@ -5,13 +5,13 @@
 #include <QHeaderView>
 #include <QImage>
 #include <QImageReader>
-#include "Tools/jpegrepair.h"
+#include "formats/jpegrepair.h"
 #include <QPixmap>
 #include <QFile>
 #include <QFileInfo>
 #include <QDateTime>
 
-#include <heifmanager.h>
+#include "formats/heifmanager.h"
 #include <TinyEXIF.h>
 
 MetadataPanel::MetadataPanel(QObject* parent)

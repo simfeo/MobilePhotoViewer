@@ -3,7 +3,7 @@
 
 #include <QString>
 
-#include <Tools/imagewithvideobase.h>
+#include "imagewithvideobase.h"
 #include <TinyEXIF.h>
 
 class QImage;

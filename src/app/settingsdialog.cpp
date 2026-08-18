@@ -1,7 +1,7 @@
 #include "settingsdialog.h"
-#include "appsettings.h"
-#include "folderbrowserpanel.h"
-#include "i18n.h"
+#include "app/appsettings.h"
+#include "browser/folderbrowserpanel.h"
+#include "app/i18n.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

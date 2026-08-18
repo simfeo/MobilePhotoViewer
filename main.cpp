@@ -1,12 +1,12 @@
 #include "mainwindow.h"
-#include "appsettings.h"
+#include "app/appsettings.h"
 
 #include <QStyleFactory>
 #include <QApplication>
 #include <QFileInfo>
 #include <QIcon>
 #include <QImageReader>
-#include "i18n.h"
+#include "app/i18n.h"
 
 int main(int argc, char* argv[])
 {

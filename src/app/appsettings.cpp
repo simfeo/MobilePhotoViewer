@@ -1,5 +1,5 @@
 #include "appsettings.h"
-#include "folderbrowserpanel.h"   // kThumbDefault / bounds
+#include "browser/folderbrowserpanel.h"   // kThumbDefault / bounds
 
 #include <QSettings>
 #include <QDir>

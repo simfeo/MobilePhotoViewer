@@ -8,13 +8,13 @@
 #include <vector>
 #include <algorithm>  // std::ranges::copy_n
 
-//#include <heifreader.h>
+//#include "heifreader.h"
 //#include <Heif.h>
 
 #include <libheif/heif.h>
 #include <libheif/heif_cxx.h>
 
-#include <Tools/heifreader.h>
+#include "heifreader.h"
 
 HeifManager::HeifManager(const QString& imgPath)
     : m_width(0)

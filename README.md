@@ -46,23 +46,32 @@ Supported still/motion formats:
 
 The UI is decomposed into focused components that communicate via signals;
 `MainWindow` is a thin coordinator (central stack + menus + drag-and-drop routing).
+Only the shell lives at the repository root; everything else sits under `src/`,
+grouped by role. Headers are included by path (`#include "formats/jpegmanager.h"`),
+so a file reaching across layers is visible in the diff.
 
 | File(s) | Responsibility |
 |---|---|
 | `main.cpp` | App entry point; opens a file/folder passed as the first CLI argument. |
-| `mainwindow.{h,cpp,ui}` | Window shell: central `QStackedWidget` (grid / image / panorama), menus, full screen, drag-and-drop, and image loading (`SetImage`, `stepImage`, panorama detection). |
-| `folderbrowserpanel.{h,cpp}` | The browser: folder tree (`QFileSystemModel`) + thumbnail grid, navigation & history, sorting, thumbnail zoom, and all file operations. |
+| `mainwindow.{h,cpp,ui}` | Window shell: central `QStackedWidget` (grid / image / panorama / depth), menus, full screen, drag-and-drop, and image loading (`SetImage`, `stepImage`, panorama and depth detection). |
+| **`src/widgets/`** | |
+| `imagerenderwidget.{h,cpp,ui}` | Still-image view with zoom/pan, motion-photo playback, and the Motion / Panorama / Depth overlay pills. |
+| `panoramawidget.{h,cpp}` | OpenGL sphere (equirectangular) or cylinder arc (sweep panoramas). |
+| `depthwidget.{h,cpp}` | OpenGL depth-parallax view: the still on a grid displaced by its depth map. |
 | `locationbar.{h,cpp}` | Breadcrumb address bar that toggles to an editable path field. |
-| `gridcontextmenu.{h,cpp}` | The grid's right-click menu (item vs. empty-space variants). |
-| `thumbnailmodel.{h,cpp}` | List model for the grid: async thumbnail generation, folder icons, drag-out payload (`mimeData`), and inline rename (`setData`). |
 | `metadatapanel.{h,cpp}` | Preview image + EXIF/property table for the selected/opened file. |
+| **`src/browser/`** | |
+| `folderbrowserpanel.{h,cpp}` | The browser: folder tree (`QFileSystemModel`) + thumbnail grid, navigation & history, sorting, thumbnail zoom, and all file operations. |
+| `thumbnailmodel.{h,cpp}` | List model for the grid: async thumbnail generation, folder icons, drag-out payload (`mimeData`), and inline rename (`setData`). |
+| `gridcontextmenu.{h,cpp}` | The grid's right-click menu (item vs. empty-space variants). |
 | `explorerselectiondelegate.{h,cpp}` | Draws the translucent Explorer-style selection highlight. |
-| `imagerenderwidget.{h,cpp,ui}` | Still-image view with zoom/pan, the motion-photo play button, and the 360° button. |
-| `videowidget.{h,cpp,ui}` | Embedded video playback surface used by the render widget. |
-| `panoramawidget.{h,cpp}` | OpenGL sphere for equirectangular panoramas. |
-| `jpegmanager.{h,cpp}`, `heifmanager.{h,cpp}` | Decode a still and extract the embedded motion-photo video clip (JPEG / HEIF). |
-| `Tools/imagewithvideobase.*` | Common base for the managers (`HasMicrovideo`, `getVideoMemory`, …). |
-| `Tools/heifboxes.*`, `Tools/heifreader.*`, `Tools/ramfile.*` | HEIF/ISO-BMFF box parsing and in-memory file helpers. |
+| **`src/formats/`** — no UI dependencies | |
+| `jpegmanager.{h,cpp}`, `heifmanager.{h,cpp}` | Decode a still and pull out what the phone appended: motion clip, depth map, panorama markers. |
+| `imagewithvideobase.*` | Common base for the managers (`HasMicrovideo`, `HasDepthMap`, `VideoFillsStill`, …). |
+| `jpegrepair.*` | Decodes Samsung stills whose JPEG stream is never terminated (the clip is appended with no `EOI`), which Qt otherwise refuses. |
+| `heifboxes.*`, `heifreader.*`, `ramfile.*` | HEIF/ISO-BMFF box parsing (`mpvd`, `sefd`) and in-memory file helpers. |
+| **`src/app/`** | |
+| `appsettings.{h,cpp}`, `i18n.{h,cpp}`, `settingsdialog.{h,cpp}` | Persisted settings, live language switching, and the settings dialog. |
 
 ## Keyboard shortcuts
 

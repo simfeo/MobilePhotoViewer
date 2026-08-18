@@ -2,7 +2,7 @@
 
 #include <QThreadPool>
 #include <QImageReader>
-#include "Tools/jpegrepair.h"
+#include "formats/jpegrepair.h"
 #include <QFileInfo>
 #include <QFileInfoList>
 #include <QFileIconProvider>
@@ -11,7 +11,7 @@
 #include <QUrl>
 #include <QFile>
 
-#include <heifmanager.h>
+#include "formats/heifmanager.h"
 
 ThumbnailModel::ThumbnailModel(QObject* parent)
     : QAbstractListModel(parent)
