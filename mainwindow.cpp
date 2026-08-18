@@ -368,11 +368,14 @@ bool MainWindow::detectPanorama(const QString& path)
     // Google/Pixel sweep panoramas carry no GPano geometry -- just a GCamera
     // special-type marker. Treat those as cylindrical with heuristic geometry.
     const bool specialPano = head.contains("SpecialType-PANORAMA");
-    if (!equirect && !gpanoCyl && !specialPano)
+    // Samsung marks its sweep panoramas in the SEF container at the end of the
+    // file, which the manager has already parsed.
+    const bool samsungPano = m_imageManager && m_imageManager->IsPanoramaShot();
+    if (!equirect && !gpanoCyl && !specialPano && !samsungPano)
         return false;
 
     m_isPano     = true;
-    m_panoCylindrical = !equirect && (gpanoCyl || specialPano);
+    m_panoCylindrical = !equirect && (gpanoCyl || specialPano || samsungPano);
     m_panoFullW  = static_cast<int>(exif.GPano.FullPanoWidthPixels);
     m_panoFullH  = static_cast<int>(exif.GPano.FullPanoHeightPixels);
     m_panoCropW  = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
@@ -523,7 +526,11 @@ void MainWindow::SetImage(const QString& imgPath)
     }
     const bool hasVideo = m_imageManager->HasMicrovideo();
     if (hasVideo)
+    {
+        ui->photoVidget->SetVideoGeometry(m_imageManager->VideoFillsStill(),
+                                          m_imageManager->VideoExtraRotation());
         ui->photoVidget->SetVideoManager(m_imageManager->getVideoMemory());
+    }
     if (m_saveVideoAction)
         m_saveVideoAction->setEnabled(hasVideo);
 

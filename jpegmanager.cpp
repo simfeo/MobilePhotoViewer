@@ -63,6 +63,19 @@ QImage depthFromRaw(const uint8_t* bytes, size_t len, double imageAspect)
 
 // Depth is stored in sensor orientation; the still is shown through
 // setAutoTransform, so it needs the same rotation or portrait shots disagree.
+// Sweep clips are stored sideways with an identity display matrix, whatever the
+// still's EXIF says, so the angle cannot be read from the file. Measured: all 8
+// panoramas in the library need 90 clockwise. Only one wide-selfie clip exists
+// to measure, so that 270 may not hold for every capture.
+int rotationForClip(std::string_view blockName)
+{
+    if (blockName.starts_with("Motion_Panorama"))
+        return 90;
+    if (blockName.starts_with("Wide_Selfie"))
+        return 270;
+    return 0;
+}
+
 QImage applyExifOrientation(const QImage& img, uint32_t orientation)
 {
     QTransform t;
@@ -164,6 +177,9 @@ void JpegManager::manageJpeg()
                     const std::string_view name(reinterpret_cast<const char*>(data.data() + blockStart + 8),
                                                 nameLen);
 
+                    if (name.starts_with("Panorama_Shot_Info") || name.starts_with("Motion_Panorama"))
+                        m_panoramaShot = true;
+
                     // Live Focus shots carry the depth map beside the stills.
                     if (m_depthMap.isNull() && name.starts_with("DualShot_DepthMap"))
                     {
@@ -182,10 +198,15 @@ void JpegManager::manageJpeg()
 
                     if (!m_memoryVideo && magicAt(payloadStart + 4, "ftyp"))  // ISO-BMFF video
                     {
-                        qDebug() << "Samsung SEF motion photo: video bytes [" << payloadStart << ".." << blockEnd << "]";
+                        qDebug() << "Samsung SEF clip:" << QString::fromUtf8(name.data(), int(name.size()))
+                                 << "bytes [" << payloadStart << ".." << blockEnd << "]";
                         m_memoryVideo.reset(new QBuffer());
                         m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + payloadStart),
                                                static_cast<int>(blockEnd - payloadStart));
+                        // Only MotionPhoto clips share the still's framing.
+                        m_videoFillsStill = name.starts_with("MotionPhoto");
+                        if (!m_videoFillsStill)
+                            m_videoExtraRotation = rotationForClip(name);
                     }
                 }
             }

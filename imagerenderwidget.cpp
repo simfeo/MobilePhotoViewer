@@ -128,7 +128,9 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
         if (!m_showVideo)
             return;
         m_frame = frame;
-        update(currentImageRect());
+        // Sweep footage is drawn outside the still's rect, so the whole widget has
+        // to be invalidated or the clip is clipped to the photo's shape.
+        m_videoFillsStill ? update(currentImageRect()) : update();
     });
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &ImageRenderWidget::statusChanged);
 
@@ -166,8 +168,8 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
 
 void ImageRenderWidget::SetPlayButtonVisible(bool state)
 {
-    positionPlayButton();
     m_motionPill->setVisible(state);
+    positionPlayButton();
     if (state)
         m_motionPill->raise();
 }
@@ -292,30 +294,39 @@ void ImageRenderWidget::changeEvent(QEvent* event)
 
 void ImageRenderWidget::positionPlayButton()
 {
-    // The pills sit in the photo's top-left corner, inset a little. Only one is
-    // ever visible (a photo is a motion clip, a panorama or a depth shot).
+    // The pills sit in a row in the photo's top-left corner. A motion panorama is
+    // both a clip and a panorama, so more than one can be up at a time.
     const QRect img = currentImageRect();
     if (img.isNull())
         return;
+    int x = img.left() + 12;
     for (QFrame* pill : { m_motionPill, m_panoPill, m_depthPill })
     {
         pill->adjustSize();
-        pill->move(img.left() + 12, img.top() + 12);
+        pill->move(x, img.top() + 12);
+        if (pill->isVisible())
+            x += pill->width() + 8;
     }
+}
+
+void ImageRenderWidget::SetVideoGeometry(bool fillsStill, int extraRotation)
+{
+    m_videoFillsStill = fillsStill;
+    m_videoExtraRotation = extraRotation;
 }
 
 void ImageRenderWidget::SetPanoramaButtonVisible(bool state)
 {
-    positionPlayButton();
     m_panoPill->setVisible(state);
+    positionPlayButton();
     if (state)
         m_panoPill->raise();
 }
 
 void ImageRenderWidget::SetDepthButtonVisible(bool state)
 {
-    positionPlayButton();
     m_depthPill->setVisible(state);
+    positionPlayButton();
     if (state)
         m_depthPill->raise();
 }
@@ -340,10 +351,30 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
     if (m_showVideo && m_frame.isValid())
     {
         QVideoFrame::PaintOptions options;
-        // The clip's aspect differs from the still's by a sub-percent, so filling
-        // the photo's rect exactly matches it without a visible letterbox.
-        options.aspectRatioMode = Qt::IgnoreAspectRatio;
-        m_frame.paint(&painter, currentImageRect(), options);
+        if (m_videoFillsStill)
+        {
+            // A motion-photo clip differs from the still by a sub-percent, so
+            // filling the photo's rect matches it without a visible letterbox.
+            options.aspectRatioMode = Qt::IgnoreAspectRatio;
+            m_frame.paint(&painter, currentImageRect(), options);
+            return;
+        }
+
+        // Sweep footage: fixed 16:9 that has nothing to do with the still's shape,
+        // so fit it in the widget on its own terms.
+        options.aspectRatioMode = Qt::KeepAspectRatio;
+        QSize shown = m_frame.size();
+        if (m_videoExtraRotation % 180)
+            shown.transpose();
+        shown.scale(size(), Qt::KeepAspectRatio);
+        if (m_videoExtraRotation % 180)
+            shown.transpose();            // back to the frame's own axes for painting
+
+        painter.save();
+        painter.translate(rect().center());
+        painter.rotate(m_videoExtraRotation);
+        m_frame.paint(&painter, QRect(QPoint(-shown.width() / 2, -shown.height() / 2), shown), options);
+        painter.restore();
         return;
     }
 
@@ -434,6 +465,7 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
         stopVideo();
         m_motionPill->show();
         m_motionPill->raise();
+        positionPlayButton();   // the row width changed now the pill is up
         break;
     case QMediaPlayer::LoadingMedia:
         // setStatusInfo(tr("Loading..."));

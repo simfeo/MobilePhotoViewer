@@ -38,6 +38,9 @@ public:
     void SetPanoramaButtonVisible(bool state);
     void SetDepthButtonVisible(bool state);
     void SetVideoManager(std::shared_ptr<QBuffer> videoBuff);
+    // Sweep footage does not share the still's framing: it is letterboxed at its
+    // own aspect and turned by 'extraRotation' degrees to match the still.
+    void SetVideoGeometry(bool fillsStill, int extraRotation);
 
     void zoomIn();
     void zoomOut();
@@ -101,6 +104,8 @@ private:
     bool    m_dragging;
     QPoint  m_dragLast;
     bool    m_hasVideo;      // a motion-photo clip is loaded
+    bool    m_videoFillsStill = true;
+    int     m_videoExtraRotation = 0;
 
     // Overlay pills in the photo's top-left. Only one is ever visible: a photo is
     // a motion clip, a panorama or a depth shot, never two at once.
