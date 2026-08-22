@@ -144,6 +144,7 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     src/formats/jpegrepair.cpp         src/formats/jpegrepair.h
     src/formats/heifboxes.cpp          src/formats/heifboxes.h
     src/formats/heifreader.cpp         src/formats/heifreader.h
+    src/formats/sefreader.cpp          src/formats/sefreader.h
     src/formats/ramfile.cpp            src/formats/ramfile.h
 
     # Settings and translation plumbing.

@@ -1,5 +1,7 @@
 #include "jpegmanager.h"
 
+#include "sefreader.h"
+
 #include <QDebug>
 #include <QImage>
 
@@ -172,125 +174,97 @@ void JpegManager::manageJpeg()
         }
     }
 
-    // Fallback for Samsung motion photos with no GCamera XMP metadata. The clip is
-    // appended in a Samsung Extended Format (SEF) block, indexed by a directory at
-    // the end of the file:
-    //   ... <blocks> "SEFH" <u32 version><u32 count> <entries[12B]...> <u32 dirLen> "SEFT"
-    // Each entry is [u16 unk][u16 type][u32 offsetBack][u32 blockLen] with
-    // blockStart = SEFH - offsetBack; each block is [u16 unk][u16 type][u32 nameLen][name][data].
-    // The video is the block whose data begins with an ISO-BMFF 'ftyp' box -- that
-    // covers MotionPhoto / Motion-Panorama and mp4 / 3gp alike, without depending on
-    // the (varying) block name.
-    if (data.size() >= 12 && magicAt(data.size() - 4, "SEFT"))
+    // Fallback for Samsung motion photos with no GCamera XMP metadata: the clip,
+    // and any depth map, live in the SEF container appended after the JPEG.
+    // NOT PART OF EXIF OR XMP STANDARD! THE BLOCK ARE IN THE VERY LAST OF THE FILE!
+    const std::vector<Sef::Block> sefBlocks = Sef::parse(data.data(), data.size());
+    if (!sefBlocks.empty())
     {
-        const size_t n = data.size();
-        auto u32 = [&data](size_t at) {
-            return  static_cast<uint32_t>(data[at])          | (static_cast<uint32_t>(data[at + 1]) << 8)
-            | (static_cast<uint32_t>(data[at + 2]) << 16) | (static_cast<uint32_t>(data[at + 3]) << 24);
-        };
-        size_t depthStart = 0, depthLen = 0, metaStart = 0, metaLen = 0;
-        bool   depthIsFocusShot = false;
+        const Sef::Block* depth = nullptr;
+        const Sef::Block* meta  = nullptr;
+        bool depthIsFocusShot = false;
 
-        const uint32_t dirLen = u32(n - 8);
-        if (static_cast<uint64_t>(dirLen) + 8 <= n)
+        for (const Sef::Block& b : sefBlocks)
         {
-            const size_t sefh = n - 8 - dirLen;
-            if (magicAt(sefh, "SEFH"))
+            const std::string_view name(b.name);
+
+            if (name.starts_with("Panorama_Shot_Info") || name.starts_with("Motion_Panorama"))
             {
-                const uint32_t count = u32(sefh + 8);
-                const size_t dirEnd = n - 8;
-                size_t entry = sefh + 12;
-                for (uint32_t i = 0; i < count && entry + 12 <= dirEnd; ++i, entry += 12)
+                m_panoramaShot = true;
+            }
+
+            // The map and the record describing it can appear in either order,
+            // so the blocks are collected and resolved after the walk.
+            if (name.starts_with("DualShot_DepthMap") || name == "FocusShot_Map")
+            {
+                depth = &b;
+                depthIsFocusShot = (name == "FocusShot_Map");
+                continue;
+            }
+            if (name == "DualShot_Extra_Info" || name == "FocusShot_Meta_Info")
+            {
+                meta = &b;
+                continue;
+            }
+
+            if (!m_memoryVideo && Sef::isIsoBmff(data.data(), data.size(), b))
+            {
+                qDebug() << "Samsung SEF clip:" << QString::fromStdString(b.name)
+                         << "bytes [" << b.offset << ".." << (b.offset + b.length) << "]";
+                m_memoryVideo.reset(new QBuffer());
+                m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + b.offset),
+                                       static_cast<int>(b.length));
+                // Only MotionPhoto clips share the still framing.
+                m_videoFillsStill = name.starts_with("MotionPhoto");
+                if (!m_videoFillsStill)
                 {
-                    const uint32_t offBack  = u32(entry + 4);
-                    const uint32_t blockLen = u32(entry + 8);
-                    if (offBack > sefh || blockLen < 8)
-                        continue;
-                    const size_t blockStart = sefh - offBack;
-                    const size_t blockEnd   = blockStart + blockLen;
-                    if (blockStart + 8 > n || blockEnd > n)
-                        continue;
-                    const uint32_t nameLen  = u32(blockStart + 4);
-                    const size_t payloadStart = blockStart + 8 + nameLen;
-                    if (payloadStart + 8 > blockEnd || blockStart + 8 + nameLen > n)
-                        continue;
-                    const std::string_view name(reinterpret_cast<const char*>(data.data() + blockStart + 8),
-                                                nameLen);
-
-                    if (name.starts_with("Panorama_Shot_Info") || name.starts_with("Motion_Panorama"))
-                        m_panoramaShot = true;
-
-                    // The map and the record describing it can appear in either
-                    // order, so the spans are collected and resolved after the walk.
-                    if (name.starts_with("DualShot_DepthMap") || name == "FocusShot_Map")
-                    {
-                        depthStart = payloadStart;
-                        depthLen   = blockEnd - payloadStart;
-                        depthIsFocusShot = (name == "FocusShot_Map");
-                        continue;
-                    }
-                    if (name == "DualShot_Extra_Info" || name == "FocusShot_Meta_Info")
-                    {
-                        metaStart = payloadStart;
-                        metaLen   = blockEnd - payloadStart;
-                        continue;
-                    }
-
-                    if (!m_memoryVideo && magicAt(payloadStart + 4, "ftyp"))  // ISO-BMFF video
-                    {
-                        qDebug() << "Samsung SEF clip:" << QString::fromUtf8(name.data(), int(name.size()))
-                                 << "bytes [" << payloadStart << ".." << blockEnd << "]";
-                        m_memoryVideo.reset(new QBuffer());
-                        m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + payloadStart),
-                                               static_cast<int>(blockEnd - payloadStart));
-                        // Only MotionPhoto clips share the still's framing.
-                        m_videoFillsStill = name.starts_with("MotionPhoto");
-                        if (!m_videoFillsStill)
-                            m_videoExtraRotation = rotationForClip(name);
-                    }
+                    m_videoExtraRotation = rotationForClip(name);
                 }
+            }
+        }
 
-                if (depthLen)
+        if (depth)
+        {
+            const uint8_t* map = data.data() + depth->offset;
+            bool brightIsNear = false;
+            QSize size;
+
+            if (depthIsFocusShot)
+            {
+                // Selective Focus: a subject mask then a soft depth map,
+                // the second of which is the useful one. Bright is near
+                // here, the opposite of DualShot.
+                size = meta ? focusShotPlaneSize(data.data() + meta->offset, meta->length, depth->length)
+                            : QSize();
+                if (size.isValid())
                 {
-                    const uint8_t* map = data.data() + depthStart;
-                    const uint8_t* meta = metaLen ? data.data() + metaStart : nullptr;
-                    bool brightIsNear = false;
-                    QSize size;
-
-                    if (depthIsFocusShot)
-                    {
-                        // Selective Focus: a subject mask then a soft depth map,
-                        // the second of which is the useful one. Bright is near
-                        // here, the opposite of DualShot.
-                        size = meta ? focusShotPlaneSize(meta, metaLen, depthLen) : QSize();
-                        if (size.isValid())
-                        {
-                            map += size_t(size.width()) * size.height();   // skip the mask
-                            brightIsNear = true;
-                        }
-                    }
-                    else
-                    {
-                        size = meta ? dualShotDepthSize(meta, metaLen, depthLen) : QSize();
-                        if (!size.isValid())
-                        {
-                            const double aspect = m_imageEXIF.ImageHeight
-                                ? double(m_imageEXIF.ImageWidth) / double(m_imageEXIF.ImageHeight) : 0.0;
-                            size = guessDepthSize(depthLen, aspect);
-                        }
-                    }
-
-                    if (size.isValid())
-                    {
-                        m_depthMap = grayFromRaw(map, size.width(), size.height());
-                        if (!brightIsNear)
-                            m_depthMap.invertPixels();   // stored as distance
-                        m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
-                        qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
-                                 << (depthIsFocusShot ? "(FocusShot)" : "(DualShot)")
-                                 << "orientation" << m_imageEXIF.Orientation;
-                    }
+                    map += size_t(size.width()) * size.height();   // skip the mask
+                    brightIsNear = true;
                 }
+            }
+            else
+            {
+                size = meta ? dualShotDepthSize(data.data() + meta->offset, meta->length, depth->length)
+                            : QSize();
+                if (!size.isValid())
+                {
+                    const double aspect = m_imageEXIF.ImageHeight
+                        ? double(m_imageEXIF.ImageWidth) / double(m_imageEXIF.ImageHeight) : 0.0;
+                    size = guessDepthSize(depth->length, aspect);
+                }
+            }
+
+            if (size.isValid())
+            {
+                m_depthMap = grayFromRaw(map, size.width(), size.height());
+                if (!brightIsNear)
+                {
+                    m_depthMap.invertPixels();   // stored as distance
+                }
+                m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
+                qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
+                         << (depthIsFocusShot ? "(FocusShot)" : "(DualShot)")
+                         << "orientation" << m_imageEXIF.Orientation;
             }
         }
     }
