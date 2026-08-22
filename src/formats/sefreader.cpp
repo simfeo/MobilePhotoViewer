@@ -155,4 +155,27 @@ namespace Sef
         return false;
     }
 
+    bool parseSweepInfo(const uint8_t* data, size_t size, const Block& block, SweepInfo& out)
+    {
+        // <u32 frameWidth><u32 frameHeight><u32 frameCount><u32 kind>
+        // <u32 frames><u32 0><u32 0><u32 rotationDegrees>
+        if (block.length < 32 || size - block.offset < block.length)
+        {
+            return false;
+        }
+
+        const uint8_t* p   = data + block.offset;
+        const uint32_t rot = u32(p + 28);
+        if (rot != 0 && rot != 90 && rot != 180 && rot != 270)
+        {
+            return false;
+        }
+
+        out.frameWidth      = u32(p);
+        out.frameHeight     = u32(p + 4);
+        out.frameCount      = u32(p + 8);
+        out.rotationDegrees = int(rot);
+        return true;
+    }
+
 }   // namespace Sef

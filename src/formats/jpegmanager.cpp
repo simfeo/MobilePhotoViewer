@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <string_view>
 #include <span>
 #include <algorithm>   // std::ranges::equal
@@ -130,12 +131,8 @@ namespace
         return QSize(int(w), int(h));
     }
 
-    // Depth is stored in sensor orientation; the still is shown through
-    // setAutoTransform, so it needs the same rotation or portrait shots disagree.
-    // Sweep clips are stored sideways with an identity display matrix, whatever the
-    // still's EXIF says, so the angle cannot be read from the file. Measured: all 8
-    // panoramas in the library need 90 clockwise. Only one wide-selfie clip exists
-    // to measure, so that 270 may not hold for every capture.
+    // Fallback for sweep clips whose *_Motion_Info record is missing or unreadable.
+    // Measured over the sample library; the record itself is preferred when present.
     int rotationForClip(std::string_view blockName)
     {
         if (blockName.starts_with("Motion_Panorama"))
@@ -229,8 +226,10 @@ void JpegManager::manageJpeg()
     const std::vector<Sef::Block> sefBlocks = Sef::parse(data.data(), data.size());
     if (!sefBlocks.empty())
     {
-        const Sef::Block* depth             = nullptr;
-        const Sef::Block* meta              = nullptr;
+        const Sef::Block* depth = nullptr;
+        const Sef::Block* meta  = nullptr;
+        const Sef::Block* sweep = nullptr;
+        std::string       clipName;
         bool              depthIsFocusShot  = false;
         bool              depthIsSingleShot = false;
 
@@ -241,6 +240,12 @@ void JpegManager::manageJpeg()
             if (name.starts_with("Panorama_Shot_Info") || name.starts_with("Motion_Panorama"))
             {
                 m_panoramaShot = true;
+            }
+
+            if (name == "Motion_Panorama_Info" || name == "Wide_Selfie_Motion_Info")
+            {
+                sweep = &b;
+                continue;
             }
 
             // The map and the record describing it can appear in either order,
@@ -268,10 +273,22 @@ void JpegManager::manageJpeg()
                                        static_cast<int>(b.length));
                 // Only MotionPhoto clips share the still framing.
                 m_videoFillsStill = name.starts_with("MotionPhoto");
-                if (!m_videoFillsStill)
-                {
-                    m_videoExtraRotation = rotationForClip(name);
-                }
+                clipName          = b.name;
+            }
+        }
+
+        if (!clipName.empty() && !m_videoFillsStill)
+        {
+            Sef::SweepInfo info;
+            if (sweep && Sef::parseSweepInfo(data.data(), data.size(), *sweep, info))
+            {
+                m_videoExtraRotation = info.rotationDegrees;
+                qDebug() << "Samsung SEF sweep:" << QString::fromStdString(sweep->name) << info.frameWidth << "x"
+                         << info.frameHeight << info.frameCount << "frames, rotation" << info.rotationDegrees;
+            }
+            else
+            {
+                m_videoExtraRotation = rotationForClip(clipName);
             }
         }
 

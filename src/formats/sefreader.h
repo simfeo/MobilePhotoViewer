@@ -45,6 +45,19 @@ namespace Sef
 
     // Reads a 4-byte little-endian field by name. False when absent or wrong width.
     bool dofsInt(const std::vector<DofsField>& fields, std::string_view name, int32_t& out);
+
+    // Describes a sweep capture: panorama or wide selfie.
+    struct SweepInfo
+    {
+        uint32_t frameWidth      = 0;
+        uint32_t frameHeight     = 0;
+        uint32_t frameCount      = 0;
+        int      rotationDegrees = 0;   // angle the clip has to be turned by
+    };
+
+    // Reads Motion_Panorama_Info / Wide_Selfie_Motion_Info. False when the record
+    // is too short or the angle is not a right angle.
+    bool parseSweepInfo(const uint8_t* data, size_t size, const Block& block, SweepInfo& out);
 }   // namespace Sef
 
 #endif   // SEFREADER_H
