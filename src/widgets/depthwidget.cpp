@@ -214,7 +214,8 @@ void DepthWidget::initializeGL()
 {
     initializeOpenGLFunctions();
 
-    // z is biased by disparity so nearer geometry wins where the sheet folds over.
+    // ortho() negates z, so aDisp is passed through unnegated: higher disparity
+    // then lands nearer and wins where the sheet folds over.
     m_program.addShaderFromSourceCode(QOpenGLShader::Vertex,
                                       "attribute vec2 aPos;\n"
                                       "attribute vec2 aUV;\n"
@@ -225,7 +226,7 @@ void DepthWidget::initializeGL()
                                       "void main(){\n"
                                       "  vUV = aUV;\n"
                                       "  vec2 p = aPos + aDisp * shift;\n"
-                                      "  gl_Position = mvp * vec4(p, -aDisp, 1.0);\n"
+                                      "  gl_Position = mvp * vec4(p, aDisp, 1.0);\n"
                                       "}\n");
     m_program.addShaderFromSourceCode(QOpenGLShader::Fragment,
                                       "uniform sampler2D tex;\n"

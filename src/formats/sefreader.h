@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Samsung Extended Format: a container appended after the JPEG EOI, so it is
@@ -29,6 +30,21 @@ namespace Sef
 
     // True if the block payload begins with an ISO-BMFF box header, i.e. a clip.
     bool isIsoBmff(const uint8_t* data, size_t size, const Block& block);
+
+    // One named value out of a DOFS record.
+    struct DofsField
+    {
+        std::string          name;
+        std::vector<uint8_t> value;
+    };
+
+    // DOFS records live in the *_Meta_Info blocks and describe the depth output.
+    // Version 3 is a list of named values; version 2 is an opaque ArcSoft blob and
+    // yields nothing. Returns empty for anything else.
+    std::vector<DofsField> parseDofs(const uint8_t* data, size_t size, const Block& block);
+
+    // Reads a 4-byte little-endian field by name. False when absent or wrong width.
+    bool dofsInt(const std::vector<DofsField>& fields, std::string_view name, int32_t& out);
 }   // namespace Sef
 
 #endif   // SEFREADER_H

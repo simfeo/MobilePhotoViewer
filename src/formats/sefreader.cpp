@@ -89,4 +89,70 @@ namespace Sef
         return block.length >= 8 && magicAt(data, size, block.offset + 4, "ftyp");
     }
 
+    std::vector<DofsField> parseDofs(const uint8_t* data, size_t size, const Block& block)
+    {
+        std::vector<DofsField> fields;
+        // "DOFS" <u32 version><u32 unused><u32 recordLength><u16 count>, then the values.
+        if (block.length < 18 || size - block.offset < block.length)
+        {
+            return fields;
+        }
+
+        const uint8_t* p = data + block.offset;
+        if (std::memcmp(p, "DOFS", 4) != 0 || u32(p + 4) != 3)
+        {
+            return fields;
+        }
+
+        const uint16_t count = u16(p + 16);
+        size_t         at    = 18;
+        for (uint16_t i = 0; i < count; ++i)
+        {
+            // [u8 type][u8 nameLen][name][u16 valueLen][value]
+            if (at + 2 > block.length)
+            {
+                break;
+            }
+            const uint8_t nameLen = p[at + 1];
+            at += 2;
+            if (block.length - at < nameLen)
+            {
+                break;
+            }
+
+            DofsField f;
+            f.name.assign(reinterpret_cast<const char*>(p + at), nameLen);
+            at += nameLen;
+            if (at + 2 > block.length)
+            {
+                break;
+            }
+
+            const uint16_t valueLen = u16(p + at);
+            at += 2;
+            if (block.length - at < valueLen)
+            {
+                break;
+            }
+
+            f.value.assign(p + at, p + at + valueLen);
+            at += valueLen;
+            fields.push_back(std::move(f));
+        }
+        return fields;
+    }
+
+    bool dofsInt(const std::vector<DofsField>& fields, std::string_view name, int32_t& out)
+    {
+        for (const DofsField& f : fields)
+        {
+            if (f.name == name && f.value.size() == 4)
+            {
+                out = static_cast<int32_t>(u32(f.value.data()));
+                return true;
+            }
+        }
+        return false;
+    }
+
 }   // namespace Sef

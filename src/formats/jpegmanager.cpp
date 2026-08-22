@@ -112,6 +112,24 @@ namespace
         return QSize(w, h);
     }
 
+    // SingleShot is single-camera bokeh: one segmentation matte, no stereo. The
+    // DOFS record names its geometry, so nothing has to be guessed.
+    QSize singleShotPlaneSize(const uint8_t* data, size_t size, const Sef::Block& meta, size_t mapLen)
+    {
+        const std::vector<Sef::DofsField> fields = Sef::parseDofs(data, size, meta);
+        int32_t                           w      = 0;
+        int32_t                           h      = 0;
+        if (!Sef::dofsInt(fields, "segWidth", w) || !Sef::dofsInt(fields, "segHeight", h))
+        {
+            return QSize();
+        }
+        if (w <= 0 || h <= 0 || size_t(w) * size_t(h) != mapLen)
+        {
+            return QSize();
+        }
+        return QSize(int(w), int(h));
+    }
+
     // Depth is stored in sensor orientation; the still is shown through
     // setAutoTransform, so it needs the same rotation or portrait shots disagree.
     // Sweep clips are stored sideways with an identity display matrix, whatever the
@@ -211,9 +229,10 @@ void JpegManager::manageJpeg()
     const std::vector<Sef::Block> sefBlocks = Sef::parse(data.data(), data.size());
     if (!sefBlocks.empty())
     {
-        const Sef::Block* depth            = nullptr;
-        const Sef::Block* meta             = nullptr;
-        bool              depthIsFocusShot = false;
+        const Sef::Block* depth             = nullptr;
+        const Sef::Block* meta              = nullptr;
+        bool              depthIsFocusShot  = false;
+        bool              depthIsSingleShot = false;
 
         for (const Sef::Block& b : sefBlocks)
         {
@@ -226,13 +245,15 @@ void JpegManager::manageJpeg()
 
             // The map and the record describing it can appear in either order,
             // so the blocks are collected and resolved after the walk.
-            if (name.starts_with("DualShot_DepthMap") || name == "FocusShot_Map")
+            // "SingeShot" is Samsung's own spelling of the block name.
+            if (name.starts_with("DualShot_DepthMap") || name == "FocusShot_Map" || name.starts_with("SingeShot_DepthMap"))
             {
-                depth            = &b;
-                depthIsFocusShot = (name == "FocusShot_Map");
+                depth             = &b;
+                depthIsFocusShot  = (name == "FocusShot_Map");
+                depthIsSingleShot = name.starts_with("SingeShot_DepthMap");
                 continue;
             }
-            if (name == "DualShot_Extra_Info" || name == "FocusShot_Meta_Info")
+            if (name == "DualShot_Extra_Info" || name == "FocusShot_Meta_Info" || name == "SingleShot_Meta_Info")
             {
                 meta = &b;
                 continue;
@@ -256,15 +277,21 @@ void JpegManager::manageJpeg()
 
         if (depth)
         {
-            const uint8_t* map          = data.data() + depth->offset;
-            bool           brightIsNear = false;
+            const uint8_t* map = data.data() + depth->offset;
             QSize          size;
+            // The view wants disparity. DualShot stores distance and has to be
+            // flipped; the segmentation mattes are already bright-is-near.
+            bool brightIsNear = false;
 
-            if (depthIsFocusShot)
+            if (depthIsSingleShot)
+            {
+                size         = meta ? singleShotPlaneSize(data.data(), data.size(), *meta, depth->length) : QSize();
+                brightIsNear = true;
+            }
+            else if (depthIsFocusShot)
             {
                 // Selective Focus: a subject mask then a soft depth map,
-                // the second of which is the useful one. Bright is near
-                // here, the opposite of DualShot.
+                // the second of which is the useful one.
                 size = meta ? focusShotPlaneSize(data.data() + meta->offset, meta->length, depth->length)
                             : QSize();
                 if (size.isValid())
@@ -295,7 +322,9 @@ void JpegManager::manageJpeg()
                 }
                 m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
                 qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
-                         << (depthIsFocusShot ? "(FocusShot)" : "(DualShot)")
+                         << (depthIsSingleShot  ? "(SingleShot)"
+                             : depthIsFocusShot ? "(FocusShot)"
+                                                : "(DualShot)")
                          << "orientation" << m_imageEXIF.Orientation;
             }
         }
