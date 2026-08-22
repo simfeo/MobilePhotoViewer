@@ -20,18 +20,7 @@
 #include <QDebug>
 
 ImageRenderWidget::ImageRenderWidget(QWidget* parent)
-    : QWidget(parent)
-    , m_ui(new Ui::ImageRenderWidget)
-    , m_stillImage(nullptr)
-    , m_nextImage(nullptr)
-    , m_player(nullptr)
-    , m_audioOutput(nullptr)
-    , m_videoSink(nullptr)
-    , m_showVideo(false)
-    , m_zoom(1.0)
-    , m_imgTopLeft(0, 0)
-    , m_dragging(false)
-    , m_hasVideo(false)
+    : QWidget(parent), m_ui(new Ui::ImageRenderWidget), m_stillImage(nullptr), m_nextImage(nullptr), m_player(nullptr), m_audioOutput(nullptr), m_videoSink(nullptr), m_showVideo(false), m_zoom(1.0), m_imgTopLeft(0, 0), m_dragging(false), m_hasVideo(false)
 {
     m_ui->setupUi(this);
     setFocusPolicy(Qt::StrongFocus);
@@ -49,15 +38,15 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_muteButton->setText(QString::fromUtf8("\xF0\x9F\x94\x8A"));   // 🔊
     m_muteButton->setCursor(Qt::PointingHandCursor);
     m_muteButton->setStyleSheet(kPillButtonQss);
-    connect(m_muteButton, &QPushButton::clicked, this, [this] {
+    connect(m_muteButton, &QPushButton::clicked, this, [this]
+            {
         const bool muted = !m_audioOutput->isMuted();
         m_audioOutput->setMuted(muted);
         m_muteButton->setText(QString::fromUtf8(muted ? "\xF0\x9F\x94\x87"    // 🔇
                                                       : "\xF0\x9F\x94\x8A")); // 🔊
-        retranslateControls();
-    });
+        retranslateControls(); });
 
-    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
+    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));   // ▶
     m_ui->playButton->setCursor(Qt::PointingHandCursor);
     m_ui->playButton->setStyleSheet(kPillButtonQss);
 
@@ -81,7 +70,8 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_panoButton->setText("360");
     m_panoButton->setCursor(Qt::PointingHandCursor);
     m_panoButton->setStyleSheet(kPillButtonQss);
-    connect(m_panoButton, &QPushButton::clicked, this, [this]{ emit panoramaRequested(); });
+    connect(m_panoButton, &QPushButton::clicked, this, [this]
+            { emit panoramaRequested(); });
 
     m_panoLabel = new QLabel(this);
     m_panoLabel->setStyleSheet(kPillLabelQss);
@@ -101,7 +91,8 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     m_depthButton->setText("3D");
     m_depthButton->setCursor(Qt::PointingHandCursor);
     m_depthButton->setStyleSheet(kPillButtonQss);
-    connect(m_depthButton, &QPushButton::clicked, this, [this]{ emit depthRequested(); });
+    connect(m_depthButton, &QPushButton::clicked, this, [this]
+            { emit depthRequested(); });
 
     m_depthLabel = new QLabel(this);
     m_depthLabel->setStyleSheet(kPillLabelQss);
@@ -116,7 +107,7 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     depthLayout->addWidget(m_depthButton);
     m_depthPill->hide();
 
-    m_player = new QMediaPlayer(this);
+    m_player      = new QMediaPlayer(this);
     m_audioOutput = new QAudioOutput(this);
     m_player->setAudioOutput(m_audioOutput);
 
@@ -124,14 +115,15 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     // handing the player a QVideoWidget.
     m_videoSink = new QVideoSink(this);
     m_player->setVideoSink(m_videoSink);
-    connect(m_videoSink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame& frame) {
-        if (!m_showVideo)
+    connect(m_videoSink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame& frame)
+            {
+        if (!m_showVideo){
             return;
+}
         m_frame = frame;
         // Sweep footage is drawn outside the still's rect, so the whole widget has
         // to be invalidated or the clip is clipped to the photo's shape.
-        m_videoFillsStill ? update(currentImageRect()) : update();
-    });
+        m_videoFillsStill ? update(currentImageRect()) : update(); });
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &ImageRenderWidget::statusChanged);
 
     // Last: retranslateControls() reads the player/audio state, so it must run
@@ -152,14 +144,14 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
         qDebug() << "invalid image on input";
     }
     m_stillImage.reset(new QPixmap(image));
-    m_zoom = 1.0;            // every new image starts fit-to-window
+    m_zoom     = 1.0;   // every new image starts fit-to-window
     m_dragging = false;
     m_hasVideo = false;
     unsetCursor();
     m_player->stop();
     stopVideo();
     m_motionPill->hide();
-    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶
+    m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));   // ▶
     retranslateControls();
     m_panoPill->hide();
     m_depthPill->hide();
@@ -171,7 +163,9 @@ void ImageRenderWidget::SetPlayButtonVisible(bool state)
     m_motionPill->setVisible(state);
     positionPlayButton();
     if (state)
+    {
         m_motionPill->raise();
+    }
 }
 
 void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
@@ -185,7 +179,9 @@ void ImageRenderWidget::SetVideoManager(std::shared_ptr<QBuffer> videoBuff)
 void ImageRenderWidget::togglePlayButton()
 {
     if (m_hasVideo && !m_showVideo)   // only meaningful before playback
+    {
         m_motionPill->setVisible(!m_motionPill->isVisible());
+    }
 }
 
 // Rectangle the current image is drawn into: scaled to fit while keeping the
@@ -194,16 +190,22 @@ QRect ImageRenderWidget::currentImageRect() const
 {
     QSize src;
     if (m_nextImage)
+    {
         src = m_nextImage->size();
+    }
     else if (m_stillImage)
+    {
         src = m_stillImage->size();
+    }
 
     if (src.isEmpty())
+    {
         return QRect();
+    }
 
-    QSize scaled = src.scaled(size(), Qt::KeepAspectRatio);
-    int x_offset = (width() - scaled.width()) / 2;
-    int y_offset = (height() - scaled.height()) / 2;
+    QSize scaled   = src.scaled(size(), Qt::KeepAspectRatio);
+    int   x_offset = (width() - scaled.width()) / 2;
+    int   y_offset = (height() - scaled.height()) / 2;
     return QRect(x_offset, y_offset, scaled.width(), scaled.height());
 }
 
@@ -213,7 +215,9 @@ QRectF ImageRenderWidget::displayRect() const
 {
     const QRect fit = currentImageRect();
     if (!fit.isValid())
+    {
         return QRectF();
+    }
     return QRectF(m_imgTopLeft, QSizeF(fit.size()) * m_zoom);
 }
 
@@ -223,35 +227,49 @@ void ImageRenderWidget::clampOffset()
 {
     const QRect fit = currentImageRect();
     if (!fit.isValid())
+    {
         return;
+    }
     const QSizeF sz = QSizeF(fit.size()) * m_zoom;
 
     if (sz.width() <= width())
+    {
         m_imgTopLeft.setX((width() - sz.width()) / 2.0);
+    }
     else
+    {
         m_imgTopLeft.setX(qBound(width() - sz.width(), m_imgTopLeft.x(), 0.0));
+    }
 
     if (sz.height() <= height())
+    {
         m_imgTopLeft.setY((height() - sz.height()) / 2.0);
+    }
     else
+    {
         m_imgTopLeft.setY(qBound(height() - sz.height(), m_imgTopLeft.y(), 0.0));
+    }
 }
 
 void ImageRenderWidget::setZoom(double zoom, const QPointF& anchor)
 {
-    zoom = qBound(1.0, zoom, 8.0);
+    zoom            = qBound(1.0, zoom, 8.0);
     const QRect fit = currentImageRect();
     if (!fit.isValid() || qFuzzyCompare(zoom, m_zoom))
+    {
         return;
+    }
 
     // Keep the image point under the anchor fixed while zooming.
     const QPointF fitPoint = (anchor - m_imgTopLeft) / m_zoom;
-    m_zoom = zoom;
-    m_imgTopLeft = anchor - fitPoint * m_zoom;
+    m_zoom                 = zoom;
+    m_imgTopLeft           = anchor - fitPoint * m_zoom;
     clampOffset();
     setCursor(m_zoom > 1.0 ? Qt::OpenHandCursor : Qt::ArrowCursor);
     if (m_zoom <= 1.0)
+    {
         unsetCursor();
+    }
     update();
 }
 
@@ -260,9 +278,11 @@ void ImageRenderWidget::stopVideo()
     // Drop the frame as well as the flag: keeping it would leave the last frame on
     // screen instead of the still, and hold its buffer alive for no reason.
     if (!m_showVideo)
+    {
         return;
+    }
     m_showVideo = false;
-    m_frame = QVideoFrame();
+    m_frame     = QVideoFrame();
     update();
 }
 
@@ -272,7 +292,9 @@ void ImageRenderWidget::retranslateControls()
     // than set once: this is also what runs on a live language change. A
     // changeEvent can reach us before the player is built, hence the guard.
     if (!m_player || !m_audioOutput)
+    {
         return;
+    }
 
     const bool playing = (m_player->playbackState() == QMediaPlayer::PlayingState);
     m_ui->playButton->setToolTip(playing ? tr("Pause") : tr("Play"));
@@ -288,7 +310,9 @@ void ImageRenderWidget::retranslateControls()
 void ImageRenderWidget::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange)
+    {
         retranslateControls();
+    }
     QWidget::changeEvent(event);
 }
 
@@ -298,20 +322,24 @@ void ImageRenderWidget::positionPlayButton()
     // both a clip and a panorama, so more than one can be up at a time.
     const QRect img = currentImageRect();
     if (img.isNull())
+    {
         return;
+    }
     int x = img.left() + 12;
     for (QFrame* pill : { m_motionPill, m_panoPill, m_depthPill })
     {
         pill->adjustSize();
         pill->move(x, img.top() + 12);
         if (pill->isVisible())
+        {
             x += pill->width() + 8;
+        }
     }
 }
 
 void ImageRenderWidget::SetVideoGeometry(bool fillsStill, int extraRotation)
 {
-    m_videoFillsStill = fillsStill;
+    m_videoFillsStill    = fillsStill;
     m_videoExtraRotation = extraRotation;
 }
 
@@ -320,7 +348,9 @@ void ImageRenderWidget::SetPanoramaButtonVisible(bool state)
     m_panoPill->setVisible(state);
     positionPlayButton();
     if (state)
+    {
         m_panoPill->raise();
+    }
 }
 
 void ImageRenderWidget::SetDepthButtonVisible(bool state)
@@ -328,19 +358,25 @@ void ImageRenderWidget::SetDepthButtonVisible(bool state)
     m_depthPill->setVisible(state);
     positionPlayButton();
     if (state)
+    {
         m_depthPill->raise();
+    }
 }
 
 void ImageRenderWidget::paintEvent(QPaintEvent* event)
 {
     (void)event;
     if (!m_stillImage && !m_nextImage)
+    {
         return;
+    }
 
     clampOffset();
     const QRectF r = displayRect();
     if (r.isNull())
+    {
         return;
+    }
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
@@ -363,12 +399,16 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
         // Sweep footage: fixed 16:9 that has nothing to do with the still's shape,
         // so fit it in the widget on its own terms.
         options.aspectRatioMode = Qt::KeepAspectRatio;
-        QSize shown = m_frame.size();
+        QSize shown             = m_frame.size();
         if (m_videoExtraRotation % 180)
+        {
             shown.transpose();
+        }
         shown.scale(size(), Qt::KeepAspectRatio);
         if (m_videoExtraRotation % 180)
-            shown.transpose();            // back to the frame's own axes for painting
+        {
+            shown.transpose();   // back to the frame's own axes for painting
+        }
 
         painter.save();
         painter.translate(rect().center());
@@ -379,9 +419,13 @@ void ImageRenderWidget::paintEvent(QPaintEvent* event)
     }
 
     if (m_nextImage)
+    {
         painter.drawPixmap(r, QPixmap::fromImage(*m_nextImage.get()), QRectF(m_nextImage->rect()));
+    }
     else
+    {
         painter.drawPixmap(r, *m_stillImage, QRectF(m_stillImage->rect()));
+    }
 }
 
 void ImageRenderWidget::resizeEvent(QResizeEvent* event)
@@ -411,7 +455,9 @@ void ImageRenderWidget::resetZoom()
 void ImageRenderWidget::playVideo()
 {
     if (m_motionPill->isVisible())   // only when a clip is loaded
+    {
         on_playButton_clicked();
+    }
 }
 
 void ImageRenderWidget::mousePressEvent(QMouseEvent* event)
@@ -444,21 +490,26 @@ void ImageRenderWidget::mouseReleaseEvent(QMouseEvent* event)
         m_dragging = false;
         setCursor(m_zoom > 1.0 ? Qt::OpenHandCursor : Qt::ArrowCursor);
         if (m_zoom <= 1.0)
+        {
             unsetCursor();
+        }
     }
 }
 
 void ImageRenderWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton)
+    {
         emit backRequested();   // double-click returns to the folder content
+    }
 }
 
 void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
 {
     positionPlayButton();
     // handle status message
-    switch (status) {
+    switch (status)
+    {
     case QMediaPlayer::NoMedia:
     case QMediaPlayer::LoadedMedia:
         // setStatusInfo(QString());
@@ -481,7 +532,7 @@ void ImageRenderWidget::statusChanged(QMediaPlayer::MediaStatus status)
         // QApplication::alert(this);
         // m_playlist->next();
         stopVideo();
-        m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));  // ▶ (back to start)
+        m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));   // ▶ (back to start)
         retranslateControls();
         m_motionPill->show();
         m_motionPill->raise();
@@ -498,14 +549,14 @@ void ImageRenderWidget::on_playButton_clicked()
     if (m_player->playbackState() == QMediaPlayer::PlayingState)
     {
         m_player->pause();
-        m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));      // ▶
+        m_ui->playButton->setText(QString::fromUtf8("\xE2\x96\xB6"));   // ▶
         retranslateControls();
         return;
     }
 
-    m_showVideo = true;    // paintEvent draws frames from here on
+    m_showVideo = true;   // paintEvent draws frames from here on
     m_player->play();
-    m_ui->playButton->setText(QString::fromUtf8("\xE2\x9D\x9A\xE2\x9D\x9A"));  // ❚❚
+    m_ui->playButton->setText(QString::fromUtf8("\xE2\x9D\x9A\xE2\x9D\x9A"));   // ❚❚
     retranslateControls();
     update();
 }

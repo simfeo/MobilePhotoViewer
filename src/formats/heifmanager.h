@@ -19,16 +19,16 @@ public:
 
     void manageHeif();
 
-    size_t getWidth() const override;
-    size_t getHeight() const override;
+    size_t                   getWidth() const override;
+    size_t                   getHeight() const override;
     std::shared_ptr<uint8_t> getDecodedImage() override;
 
 private:
-    uint32_t                                m_width;
-    uint32_t                                m_height;
-    QString                                 m_imagePath;
-    std::shared_ptr<uint8_t>                m_decodedImage;
-    TinyEXIF::EXIFInfo                      m_imageEXIF;
+    uint32_t                 m_width;
+    uint32_t                 m_height;
+    QString                  m_imagePath;
+    std::shared_ptr<uint8_t> m_decodedImage;
+    TinyEXIF::EXIFInfo       m_imageEXIF;
 };
 
-#endif // HEIFMANAGER_H
+#endif   // HEIFMANAGER_H

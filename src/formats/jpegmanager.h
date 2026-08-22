@@ -21,8 +21,8 @@ public:
     void manageJpeg();
 
 private:
-    QString                     m_imagePath;
-    TinyEXIF::EXIFInfo          m_imageEXIF;
+    QString            m_imagePath;
+    TinyEXIF::EXIFInfo m_imageEXIF;
 };
 
-#endif // JPEGMANAGER_H
+#endif   // JPEGMANAGER_H

@@ -42,97 +42,119 @@
 
 #include <algorithm>
 
-namespace {
-// The platform's standard arrow icons are nearly black on a dark theme, so draw
-// our own filled triangles in the toolbar's (palette-derived) text colour.
-QIcon makeArrowIcon(Qt::ArrowType dir, const QColor& color, int px = 18)
+namespace
 {
-    QPixmap pm(px, px);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(Qt::NoPen);
-    p.setBrush(color);
-
-    const qreal m = px * 0.30;   // inset from the edges
-    QPolygonF tri;
-    switch (dir)
+    // The platform's standard arrow icons are nearly black on a dark theme, so draw
+    // our own filled triangles in the toolbar's (palette-derived) text colour.
+    QIcon makeArrowIcon(Qt::ArrowType dir, const QColor& color, int px = 18)
     {
-    case Qt::LeftArrow:  tri << QPointF(px - m, m) << QPointF(m, px / 2.0) << QPointF(px - m, px - m); break;
-    case Qt::RightArrow: tri << QPointF(m, m) << QPointF(px - m, px / 2.0) << QPointF(m, px - m); break;
-    case Qt::UpArrow:    tri << QPointF(m, px - m) << QPointF(px / 2.0, m) << QPointF(px - m, px - m); break;
-    default: break;
+        QPixmap pm(px, px);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(color);
+
+        const qreal m = px * 0.30;   // inset from the edges
+        QPolygonF   tri;
+        switch (dir)
+        {
+        case Qt::LeftArrow:
+            tri << QPointF(px - m, m) << QPointF(m, px / 2.0) << QPointF(px - m, px - m);
+            break;
+        case Qt::RightArrow:
+            tri << QPointF(m, m) << QPointF(px - m, px / 2.0) << QPointF(m, px - m);
+            break;
+        case Qt::UpArrow:
+            tri << QPointF(m, px - m) << QPointF(px / 2.0, m) << QPointF(px - m, px - m);
+            break;
+        default:
+            break;
+        }
+        p.drawPolygon(tri);
+        return QIcon(pm);
     }
-    p.drawPolygon(tri);
-    return QIcon(pm);
-}
 
-// A "+" or "-" glyph in the toolbar's text colour, for the zoom buttons.
-QIcon makeZoomIcon(bool plus, const QColor& color, int px = 18)
-{
-    QPixmap pm(px, px);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing);
-    QPen pen(color);
-    pen.setWidthF(px * 0.12);
-    pen.setCapStyle(Qt::RoundCap);
-    p.setPen(pen);
-
-    const qreal m = px * 0.26;
-    p.drawLine(QPointF(m, px / 2.0), QPointF(px - m, px / 2.0));   // horizontal bar
-    if (plus)
-        p.drawLine(QPointF(px / 2.0, m), QPointF(px / 2.0, px - m));   // vertical bar
-    return QIcon(pm);
-}
-
-// Return a destination path that doesn't collide: "name.ext" -> "name (2).ext".
-QString uniqueDest(const QString& path)
-{
-    if (!QFile::exists(path))
-        return path;
-    const QFileInfo fi(path);
-    const QString dir = fi.absolutePath();
-    const QString base = fi.completeBaseName();
-    const QString suffix = fi.suffix().isEmpty() ? QString() : '.' + fi.suffix();
-    for (int n = 2; ; ++n)
+    // A "+" or "-" glyph in the toolbar's text colour, for the zoom buttons.
+    QIcon makeZoomIcon(bool plus, const QColor& color, int px = 18)
     {
-        const QString candidate = QStringLiteral("%1/%2 (%3)%4").arg(dir, base).arg(n).arg(suffix);
-        if (!QFile::exists(candidate))
-            return candidate;
+        QPixmap pm(px, px);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        QPen pen(color);
+        pen.setWidthF(px * 0.12);
+        pen.setCapStyle(Qt::RoundCap);
+        p.setPen(pen);
+
+        const qreal m = px * 0.26;
+        p.drawLine(QPointF(m, px / 2.0), QPointF(px - m, px / 2.0));   // horizontal bar
+        if (plus)
+        {
+            p.drawLine(QPointF(px / 2.0, m), QPointF(px / 2.0, px - m));   // vertical bar
+        }
+        return QIcon(pm);
     }
-}
 
-// Copy a file, or a directory recursively.
-bool copyRecursive(const QString& src, const QString& dst)
-{
-    const QFileInfo fi(src);
-    if (!fi.isDir())
-        return QFile::copy(src, dst);
-
-    if (!QDir().mkpath(dst))
-        return false;
-    const QDir sd(src);
-    for (const QFileInfo& e : sd.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden))
+    // Return a destination path that doesn't collide: "name.ext" -> "name (2).ext".
+    QString uniqueDest(const QString& path)
     {
-        if (!copyRecursive(e.absoluteFilePath(), dst + '/' + e.fileName()))
+        if (!QFile::exists(path))
+        {
+            return path;
+        }
+        const QFileInfo fi(path);
+        const QString   dir    = fi.absolutePath();
+        const QString   base   = fi.completeBaseName();
+        const QString   suffix = fi.suffix().isEmpty() ? QString() : '.' + fi.suffix();
+        for (int n = 2;; ++n)
+        {
+            const QString candidate = QStringLiteral("%1/%2 (%3)%4").arg(dir, base).arg(n).arg(suffix);
+            if (!QFile::exists(candidate))
+            {
+                return candidate;
+            }
+        }
+    }
+
+    // Copy a file, or a directory recursively.
+    bool copyRecursive(const QString& src, const QString& dst)
+    {
+        const QFileInfo fi(src);
+        if (!fi.isDir())
+        {
+            return QFile::copy(src, dst);
+        }
+
+        if (!QDir().mkpath(dst))
+        {
             return false;
+        }
+        const QDir sd(src);
+        for (const QFileInfo& e : sd.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden))
+        {
+            if (!copyRecursive(e.absoluteFilePath(), dst + '/' + e.fileName()))
+            {
+                return false;
+            }
+        }
+        return true;
     }
-    return true;
-}
 }   // namespace
 
 FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     : QObject(parent)
 {
     for (auto& i : QImageReader::supportedImageFormats())
+    {
         m_supportedFormats.append("*." + i);
+    }
     m_supportedFormats.append("*.heic");
     m_supportedFormats.append("*.heif");
 
     // Thumbnail grid (icon mode, like a file browser's content pane).
     m_thumbs = new ThumbnailModel(this);
-    m_grid = new QListView;
+    m_grid   = new QListView;
     m_grid->setModel(m_thumbs);
     m_grid->setItemDelegate(new ExplorerSelectionDelegate(m_grid));
     m_grid->setViewMode(QListView::IconMode);
@@ -165,7 +187,9 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     m_folderTree->setItemDelegate(new ExplorerSelectionDelegate(m_folderTree));
     m_folderTree->setHeaderHidden(true);
     for (int c = 1; c < m_dirModel->columnCount(); ++c)
+    {
         m_folderTree->setColumnHidden(c, true);
+    }
 
     connect(m_folderTree->selectionModel(), &QItemSelectionModel::currentChanged,
             this, &FolderBrowserPanel::onFolderSelected);
@@ -183,12 +207,14 @@ FolderBrowserPanel::FolderBrowserPanel(QObject* parent)
     m_grid->viewport()->installEventFilter(this);
     m_grid->installEventFilter(this);   // Return/Enter -> open the current thumbnail
 
-    const auto addZoomKey = [this](QKeySequence seq, int steps) {
+    const auto addZoomKey = [this](QKeySequence seq, int steps)
+    {
         QShortcut* sc = new QShortcut(seq, m_grid);
         sc->setContext(Qt::WidgetShortcut);
-        connect(sc, &QShortcut::activated, this, [this, steps] { zoomThumbnails(steps); });
+        connect(sc, &QShortcut::activated, this, [this, steps]
+                { zoomThumbnails(steps); });
     };
-    addZoomKey(QKeySequence(Qt::Key_Plus),  +1);
+    addZoomKey(QKeySequence(Qt::Key_Plus), +1);
     addZoomKey(QKeySequence(Qt::Key_Equal), +1);   // '+' key without Shift
     addZoomKey(QKeySequence(Qt::Key_Minus), -1);
 
@@ -217,10 +243,14 @@ QWidget* FolderBrowserPanel::gridWidget() const
 void FolderBrowserPanel::selectFile(const QString& absPath)
 {
     if (absPath.isEmpty())
+    {
         return;
+    }
     const QModelIndex idx = m_thumbs->indexOf(absPath);
     if (!idx.isValid())
+    {
         return;   // different folder, or filtered out of the current view
+    }
     m_grid->setCurrentIndex(idx);
     m_grid->scrollTo(idx, QAbstractItemView::EnsureVisible);
 }
@@ -246,7 +276,9 @@ void FolderBrowserPanel::setThumbSize(int px)
 {
     const int size = qBound(kThumbMin, px, kThumbMax);
     if (size == m_thumbSize)
+    {
         return;
+    }
     m_thumbSize = size;
     applyThumbSize();
 }
@@ -254,7 +286,9 @@ void FolderBrowserPanel::setThumbSize(int px)
 bool FolderBrowserPanel::event(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange)
+    {
         m_i18n.retranslate();
+    }
     return QObject::event(event);
 }
 
@@ -271,7 +305,9 @@ bool FolderBrowserPanel::eventFilter(QObject* watched, QEvent* event)
         {
             const QModelIndex idx = m_grid->currentIndex();
             if (idx.isValid())
+            {
                 onThumbActivated(idx);
+            }
             return true;   // consume either way: never let it reach MainWindow
         }
     }
@@ -295,8 +331,16 @@ bool FolderBrowserPanel::eventFilter(QObject* watched, QEvent* event)
                 // macOS trackpad pinch: value() is a small per-event delta
                 // (>0 = spread/zoom-in). Accumulate until it crosses one step.
                 m_pinchAccum += ng->value();
-                while (m_pinchAccum >=  0.10) { zoomThumbnails(+1); m_pinchAccum -= 0.10; }
-                while (m_pinchAccum <= -0.10) { zoomThumbnails(-1); m_pinchAccum += 0.10; }
+                while (m_pinchAccum >= 0.10)
+                {
+                    zoomThumbnails(+1);
+                    m_pinchAccum -= 0.10;
+                }
+                while (m_pinchAccum <= -0.10)
+                {
+                    zoomThumbnails(-1);
+                    m_pinchAccum += 0.10;
+                }
                 return true;
             }
         }
@@ -307,7 +351,9 @@ bool FolderBrowserPanel::eventFilter(QObject* watched, QEvent* event)
 void FolderBrowserPanel::openFolder(const QString& dirPath)
 {
     if (dirPath.isEmpty())
+    {
         return;
+    }
     // Selecting the folder in the tree drives onFolderSelected(), which loads it.
     const QModelIndex idx = m_dirModel->index(dirPath);
     if (idx.isValid())
@@ -324,23 +370,27 @@ void FolderBrowserPanel::buildToolBar()
     // the language changes (see event()). The toolbar's windowTitle also drives
     // its toggleViewAction() text in the View menu.
     m_toolBar = new QToolBar;
-    m_i18n.add([this]{ m_toolBar->setWindowTitle(tr("Navigation")); });
+    m_i18n.add([this]
+               { m_toolBar->setWindowTitle(tr("Navigation")); });
     m_toolBar->setObjectName("NavigationToolBar");   // for saveState/restoreState
     m_toolBar->setMovable(false);
     const QColor fg = m_toolBar->palette().color(QPalette::ButtonText);
 
     m_backAct = m_toolBar->addAction(makeArrowIcon(Qt::LeftArrow, fg), QString());
-    m_i18n.add([this]{ m_backAct->setText(tr("Back")); });
+    m_i18n.add([this]
+               { m_backAct->setText(tr("Back")); });
     m_backAct->setShortcut(QKeySequence::Back);
     connect(m_backAct, &QAction::triggered, this, &FolderBrowserPanel::goBack);
 
     m_forwardAct = m_toolBar->addAction(makeArrowIcon(Qt::RightArrow, fg), QString());
-    m_i18n.add([this]{ m_forwardAct->setText(tr("Forward")); });
+    m_i18n.add([this]
+               { m_forwardAct->setText(tr("Forward")); });
     m_forwardAct->setShortcut(QKeySequence::Forward);
     connect(m_forwardAct, &QAction::triggered, this, &FolderBrowserPanel::goForward);
 
     m_upAct = m_toolBar->addAction(makeArrowIcon(Qt::UpArrow, fg), QString());
-    m_i18n.add([this]{ m_upAct->setText(tr("Up")); });
+    m_i18n.add([this]
+               { m_upAct->setText(tr("Up")); });
     connect(m_upAct, &QAction::triggered, this, &FolderBrowserPanel::goUp);
 
     m_toolBar->addSeparator();
@@ -353,61 +403,80 @@ void FolderBrowserPanel::buildToolBar()
     // Thumbnail zoom buttons (same action as Ctrl+wheel / pinch / +- keys).
     m_toolBar->addSeparator();
     QAction* zoomOut = m_toolBar->addAction(makeZoomIcon(false, fg), QString());
-    m_i18n.add([this, zoomOut]{ zoomOut->setText(tr("Zoom Out")); });
-    connect(zoomOut, &QAction::triggered, this, [this] { emit zoomRequested(-1); });
+    m_i18n.add([this, zoomOut]
+               { zoomOut->setText(tr("Zoom Out")); });
+    connect(zoomOut, &QAction::triggered, this, [this]
+            { emit zoomRequested(-1); });
     QAction* zoomIn = m_toolBar->addAction(makeZoomIcon(true, fg), QString());
-    m_i18n.add([this, zoomIn]{ zoomIn->setText(tr("Zoom In")); });
-    connect(zoomIn, &QAction::triggered, this, [this] { emit zoomRequested(+1); });
+    m_i18n.add([this, zoomIn]
+               { zoomIn->setText(tr("Zoom In")); });
+    connect(zoomIn, &QAction::triggered, this, [this]
+            { emit zoomRequested(+1); });
 
     // Filter: show only files whose name/extension contains the typed text.
     m_toolBar->addSeparator();
     QLineEdit* filterEdit = new QLineEdit;
     filterEdit->setClearButtonEnabled(true);
-    m_i18n.add([this, filterEdit]{ filterEdit->setPlaceholderText(tr("Filter")); });
+    m_i18n.add([this, filterEdit]
+               { filterEdit->setPlaceholderText(tr("Filter")); });
     filterEdit->setMaximumWidth(160);
-    connect(filterEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
+    connect(filterEdit, &QLineEdit::textChanged, this, [this](const QString& text)
+            {
         m_filter = text.trimmed();
-        reloadEntries();
-    });
+        reloadEntries(); });
     m_toolBar->addWidget(filterEdit);
 
     // Sort menu: an exclusive key, plus an exclusive ascending/descending toggle.
     QToolButton* sortBtn = new QToolButton;
-    m_i18n.add([this, sortBtn]{ sortBtn->setText(tr("Sort")); });
+    m_i18n.add([this, sortBtn]
+               { sortBtn->setText(tr("Sort")); });
     sortBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     sortBtn->setPopupMode(QToolButton::InstantPopup);
 
-    QMenu* sortMenu = new QMenu(sortBtn);
+    QMenu*        sortMenu = new QMenu(sortBtn);
     QActionGroup* keyGroup = new QActionGroup(this);
     keyGroup->setExclusive(true);
-    const auto addSort = [&](const std::function<QString()>& text, SortKey key) {
+    const auto addSort = [&](const std::function<QString()>& text, SortKey key)
+    {
         QAction* a = sortMenu->addAction(QString());
-        m_i18n.add([a, text]{ a->setText(text()); });
+        m_i18n.add([a, text]
+                   { a->setText(text()); });
         a->setCheckable(true);
         a->setChecked(key == m_sortKey);
         keyGroup->addAction(a);
-        connect(a, &QAction::triggered, this, [this, key] { m_sortKey = key; reloadEntries(); });
+        connect(a, &QAction::triggered, this, [this, key]
+                { m_sortKey = key; reloadEntries(); });
     };
-    addSort([this]{ return tr("Name"); },          SortKey::Name);
-    addSort([this]{ return tr("Date Created"); },  SortKey::DateCreated);
-    addSort([this]{ return tr("Date Modified"); }, SortKey::DateModified);
-    addSort([this]{ return tr("Size"); },          SortKey::Size);
-    addSort([this]{ return tr("Extension"); },     SortKey::Extension);
+    addSort([this]
+            { return tr("Name"); }, SortKey::Name);
+    addSort([this]
+            { return tr("Date Created"); }, SortKey::DateCreated);
+    addSort([this]
+            { return tr("Date Modified"); }, SortKey::DateModified);
+    addSort([this]
+            { return tr("Size"); }, SortKey::Size);
+    addSort([this]
+            { return tr("Extension"); }, SortKey::Extension);
 
     sortMenu->addSeparator();
     QActionGroup* dirGroup = new QActionGroup(this);
     dirGroup->setExclusive(true);
-    const auto addDir = [&](const std::function<QString()>& text, bool descending) {
+    const auto addDir = [&](const std::function<QString()>& text, bool descending)
+    {
         QAction* a = sortMenu->addAction(QString());
-        m_i18n.add([a, text]{ a->setText(text()); });
+        m_i18n.add([a, text]
+                   { a->setText(text()); });
         a->setCheckable(true);
         a->setChecked(descending == m_sortDescending);
         dirGroup->addAction(a);
         connect(a, &QAction::triggered, this,
-                [this, descending] { m_sortDescending = descending; reloadEntries(); });
+                [this, descending]
+                { m_sortDescending = descending; reloadEntries(); });
     };
-    addDir([this]{ return tr("Ascending"); },  false);
-    addDir([this]{ return tr("Descending"); }, true);
+    addDir([this]
+           { return tr("Ascending"); }, false);
+    addDir([this]
+           { return tr("Descending"); }, true);
 
     sortBtn->setMenu(sortMenu);
     m_toolBar->addWidget(sortBtn);
@@ -416,13 +485,15 @@ void FolderBrowserPanel::buildToolBar()
 void FolderBrowserPanel::reloadEntries()
 {
     if (m_currentPath.isEmpty())
+    {
         return;
+    }
     m_thumbs->setEntries(sortedEntries(m_currentPath));
 }
 
 QFileInfoList FolderBrowserPanel::sortedEntries(const QString& dir) const
 {
-    QDir d(dir);
+    QDir          d(dir);
     QFileInfoList folders = d.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList files   = d.entryInfoList(m_supportedFormats, QDir::Files);
 
@@ -432,12 +503,17 @@ QFileInfoList FolderBrowserPanel::sortedEntries(const QString& dir) const
     {
         QFileInfoList kept;
         for (const QFileInfo& fi : files)
+        {
             if (fi.fileName().contains(m_filter, Qt::CaseInsensitive))
+            {
                 kept.append(fi);
+            }
+        }
         files = kept;
     }
 
-    const auto byName = [](const QFileInfo& a, const QFileInfo& b) {
+    const auto byName = [](const QFileInfo& a, const QFileInfo& b)
+    {
         return QString::compare(a.fileName(), b.fileName(), Qt::CaseInsensitive) < 0;
     };
 
@@ -445,28 +521,42 @@ QFileInfoList FolderBrowserPanel::sortedEntries(const QString& dir) const
     std::sort(folders.begin(), folders.end(), byName);
 
     const SortKey key = m_sortKey;
-    std::sort(files.begin(), files.end(), [key, &byName](const QFileInfo& a, const QFileInfo& b) {
-        switch (key)
-        {
-        case SortKey::DateCreated:
-            if (a.birthTime() != b.birthTime())       return a.birthTime() < b.birthTime();
-            break;
-        case SortKey::DateModified:
-            if (a.lastModified() != b.lastModified()) return a.lastModified() < b.lastModified();
-            break;
-        case SortKey::Size:
-            if (a.size() != b.size())                 return a.size() < b.size();
-            break;
-        case SortKey::Extension: {
-            const int c = QString::compare(a.suffix(), b.suffix(), Qt::CaseInsensitive);
-            if (c != 0)                               return c < 0;
-            break;   // same extension -> fall through to name
-        }
-        case SortKey::Name:
-            break;
-        }
-        return byName(a, b);   // Name mode, and tie-breaker for every other key
-    });
+    std::sort(files.begin(), files.end(), [key, &byName](const QFileInfo& a, const QFileInfo& b)
+              {
+                  switch (key)
+                  {
+                  case SortKey::DateCreated:
+                      if (a.birthTime() != b.birthTime())
+                      {
+                          return a.birthTime() < b.birthTime();
+                      }
+                      break;
+                  case SortKey::DateModified:
+                      if (a.lastModified() != b.lastModified())
+                      {
+                          return a.lastModified() < b.lastModified();
+                      }
+                      break;
+                  case SortKey::Size:
+                      if (a.size() != b.size())
+                      {
+                          return a.size() < b.size();
+                      }
+                      break;
+                  case SortKey::Extension:
+                  {
+                      const int c = QString::compare(a.suffix(), b.suffix(), Qt::CaseInsensitive);
+                      if (c != 0)
+                      {
+                          return c < 0;
+                      }
+                      break;   // same extension -> fall through to name
+                  }
+                  case SortKey::Name:
+                      break;
+                  }
+                  return byName(a, b);   // Name mode, and tie-breaker for every other key
+              });
 
     // Descending reverses both lists but keeps folders grouped ahead of files.
     if (m_sortDescending)
@@ -481,9 +571,13 @@ QFileInfoList FolderBrowserPanel::sortedEntries(const QString& dir) const
 void FolderBrowserPanel::updateNavActions()
 {
     if (m_backAct)
+    {
         m_backAct->setEnabled(m_histIndex > 0);
+    }
     if (m_forwardAct)
+    {
         m_forwardAct->setEnabled(m_histIndex >= 0 && m_histIndex < m_history.size() - 1);
+    }
     if (m_upAct)
     {
         QDir d(m_currentPath);
@@ -494,7 +588,9 @@ void FolderBrowserPanel::updateNavActions()
 void FolderBrowserPanel::goBack()
 {
     if (m_histIndex <= 0)
+    {
         return;
+    }
     --m_histIndex;
     m_inHistoryNav = true;
     openFolder(m_history.at(m_histIndex));   // selects in tree -> onFolderSelected
@@ -504,7 +600,9 @@ void FolderBrowserPanel::goBack()
 void FolderBrowserPanel::goForward()
 {
     if (m_histIndex < 0 || m_histIndex >= m_history.size() - 1)
+    {
         return;
+    }
     ++m_histIndex;
     m_inHistoryNav = true;
     openFolder(m_history.at(m_histIndex));
@@ -514,10 +612,14 @@ void FolderBrowserPanel::goForward()
 void FolderBrowserPanel::goUp()
 {
     if (m_currentPath.isEmpty())
+    {
         return;
+    }
     QDir d(m_currentPath);
     if (d.cdUp())
+    {
         openFolder(d.absolutePath());   // ordinary navigation -> records history
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -525,9 +627,11 @@ void FolderBrowserPanel::goUp()
 // --------------------------------------------------------------------------
 void FolderBrowserPanel::buildFileActions()
 {
-    const auto mk = [this](const std::function<QString()>& text, const QKeySequence& sc) {
+    const auto mk = [this](const std::function<QString()>& text, const QKeySequence& sc)
+    {
         QAction* a = new QAction(this);
-        m_i18n.add([a, text]{ a->setText(text()); });
+        m_i18n.add([a, text]
+                   { a->setText(text()); });
         if (!sc.isEmpty())
         {
             a->setShortcut(sc);
@@ -537,27 +641,36 @@ void FolderBrowserPanel::buildFileActions()
         return a;
     };
 
-    m_cutAct      = mk([this]{ return tr("Cut"); },          QKeySequence::Cut);
-    m_copyAct     = mk([this]{ return tr("Copy"); },         QKeySequence::Copy);
-    m_pasteAct    = mk([this]{ return tr("Paste"); },        QKeySequence::Paste);
-    m_deleteAct   = mk([this]{ return tr("Delete"); },       QKeySequence::Delete);
-    m_renameAct   = mk([this]{ return tr("Rename"); },       QKeySequence(Qt::Key_F2));
-    m_copyPathAct = mk([this]{ return tr("Copy as Path"); }, QKeySequence(QStringLiteral("Ctrl+Shift+C")));
+    m_cutAct      = mk([this]
+                  { return tr("Cut"); }, QKeySequence::Cut);
+    m_copyAct     = mk([this]
+                   { return tr("Copy"); }, QKeySequence::Copy);
+    m_pasteAct    = mk([this]
+                    { return tr("Paste"); }, QKeySequence::Paste);
+    m_deleteAct   = mk([this]
+                     { return tr("Delete"); }, QKeySequence::Delete);
+    m_renameAct   = mk([this]
+                     { return tr("Rename"); }, QKeySequence(Qt::Key_F2));
+    m_copyPathAct = mk([this]
+                       { return tr("Copy as Path"); }, QKeySequence(QStringLiteral("Ctrl+Shift+C")));
 #ifdef Q_OS_MACOS
-    m_showInExplorerAct = mk([this]{ return tr("Show in Finder"); },   QKeySequence());
+    m_showInExplorerAct = mk([this]
+                             { return tr("Show in Finder"); }, QKeySequence());
 #else
-    m_showInExplorerAct = mk([this]{ return tr("Show in Explorer"); }, QKeySequence());
+    m_showInExplorerAct = mk([this]
+                             { return tr("Show in Explorer"); }, QKeySequence());
 #endif
-    m_refreshAct  = mk([this]{ return tr("Refresh"); },      QKeySequence(Qt::Key_F5));
+    m_refreshAct = mk([this]
+                      { return tr("Refresh"); }, QKeySequence(Qt::Key_F5));
 
-    connect(m_cutAct,           &QAction::triggered, this, &FolderBrowserPanel::cutSelection);
-    connect(m_copyAct,          &QAction::triggered, this, &FolderBrowserPanel::copySelection);
-    connect(m_pasteAct,         &QAction::triggered, this, &FolderBrowserPanel::pasteIntoFolder);
-    connect(m_deleteAct,        &QAction::triggered, this, &FolderBrowserPanel::deleteSelection);
-    connect(m_renameAct,        &QAction::triggered, this, &FolderBrowserPanel::renameSelection);
-    connect(m_copyPathAct,      &QAction::triggered, this, &FolderBrowserPanel::copyPathOfSelection);
-    connect(m_showInExplorerAct,&QAction::triggered, this, &FolderBrowserPanel::showSelectionInExplorer);
-    connect(m_refreshAct,       &QAction::triggered, this, &FolderBrowserPanel::refresh);
+    connect(m_cutAct, &QAction::triggered, this, &FolderBrowserPanel::cutSelection);
+    connect(m_copyAct, &QAction::triggered, this, &FolderBrowserPanel::copySelection);
+    connect(m_pasteAct, &QAction::triggered, this, &FolderBrowserPanel::pasteIntoFolder);
+    connect(m_deleteAct, &QAction::triggered, this, &FolderBrowserPanel::deleteSelection);
+    connect(m_renameAct, &QAction::triggered, this, &FolderBrowserPanel::renameSelection);
+    connect(m_copyPathAct, &QAction::triggered, this, &FolderBrowserPanel::copyPathOfSelection);
+    connect(m_showInExplorerAct, &QAction::triggered, this, &FolderBrowserPanel::showSelectionInExplorer);
+    connect(m_refreshAct, &QAction::triggered, this, &FolderBrowserPanel::refresh);
 
     const GridContextMenu::Actions acts{
         m_cutAct, m_copyAct, m_pasteAct, m_deleteAct,
@@ -583,29 +696,33 @@ void FolderBrowserPanel::fillEditMenu(QMenu* menu)
 
 void FolderBrowserPanel::onContextMenu(const QPoint& pos)
 {
-    const QModelIndex idx = m_grid->indexAt(pos);
-    const QPoint global = m_grid->viewport()->mapToGlobal(pos);
+    const QModelIndex idx    = m_grid->indexAt(pos);
+    const QPoint      global = m_grid->viewport()->mapToGlobal(pos);
     if (idx.isValid())
     {
         // Right-clicking outside the current selection selects just that item.
         if (!m_grid->selectionModel()->isSelected(idx))
+        {
             m_grid->setCurrentIndex(idx);
+        }
         m_contextMenu->popupForItem(global);
     }
     else
     {
-        const QMimeData* clip = QApplication::clipboard()->mimeData();
-        const bool canPaste = clip && clip->hasUrls() && !m_currentPath.isEmpty();
+        const QMimeData* clip     = QApplication::clipboard()->mimeData();
+        const bool       canPaste = clip && clip->hasUrls() && !m_currentPath.isEmpty();
         m_contextMenu->popupForEmpty(global, canPaste);
     }
 }
 
 QStringList FolderBrowserPanel::selectedPaths() const
 {
-    QStringList paths;
+    QStringList           paths;
     const QModelIndexList sel = m_grid->selectionModel()->selectedIndexes();
     for (const QModelIndex& i : sel)
+    {
         paths << m_thumbs->filePath(i);
+    }
     return paths;
 }
 
@@ -613,11 +730,15 @@ void FolderBrowserPanel::copyToClipboard(bool cut)
 {
     const QStringList paths = selectedPaths();
     if (paths.isEmpty())
+    {
         return;
+    }
 
     QList<QUrl> urls;
     for (const QString& p : paths)
+    {
         urls << QUrl::fromLocalFile(p);
+    }
 
     QMimeData* mime = new QMimeData;
     mime->setUrls(urls);
@@ -628,25 +749,35 @@ void FolderBrowserPanel::copyToClipboard(bool cut)
     QApplication::clipboard()->setMimeData(mime);
 }
 
-void FolderBrowserPanel::cutSelection()  { copyToClipboard(true); }
-void FolderBrowserPanel::copySelection() { copyToClipboard(false); }
+void FolderBrowserPanel::cutSelection()
+{
+    copyToClipboard(true);
+}
+void FolderBrowserPanel::copySelection()
+{
+    copyToClipboard(false);
+}
 
 void FolderBrowserPanel::pasteIntoFolder()
 {
     const QMimeData* mime = QApplication::clipboard()->mimeData();
     if (!mime || !mime->hasUrls() || m_currentPath.isEmpty())
+    {
         return;
+    }
 
-    const QByteArray eff = mime->data(QStringLiteral("Preferred DropEffect"));
-    const bool move = !eff.isEmpty() && quint8(eff.at(0)) == 2;
+    const QByteArray eff  = mime->data(QStringLiteral("Preferred DropEffect"));
+    const bool       move = !eff.isEmpty() && quint8(eff.at(0)) == 2;
 
-    const QDir dest(m_currentPath);
+    const QDir        dest(m_currentPath);
     const QList<QUrl> urls = mime->urls();   // snapshot before we touch the clipboard
     for (const QUrl& url : urls)
     {
         const QString src = url.toLocalFile();
         if (src.isEmpty())
+        {
             continue;
+        }
         const QString target = uniqueDest(dest.absoluteFilePath(QFileInfo(src).fileName()));
         if (move)
         {
@@ -654,8 +785,14 @@ void FolderBrowserPanel::pasteIntoFolder()
             {
                 if (copyRecursive(src, target))
                 {
-                    if (QFileInfo(src).isDir()) QDir(src).removeRecursively();
-                    else                        QFile::remove(src);
+                    if (QFileInfo(src).isDir())
+                    {
+                        QDir(src).removeRecursively();
+                    }
+                    else
+                    {
+                        QFile::remove(src);
+                    }
                 }
             }
         }
@@ -665,7 +802,9 @@ void FolderBrowserPanel::pasteIntoFolder()
         }
     }
     if (move)
+    {
         QApplication::clipboard()->clear();
+    }
     reloadEntries();
 }
 
@@ -673,17 +812,23 @@ void FolderBrowserPanel::deleteSelection()
 {
     const QStringList paths = selectedPaths();
     if (paths.isEmpty())
+    {
         return;
+    }
 
     const QString question = paths.size() == 1
-        ? tr("Move \"%1\" to the Recycle Bin?").arg(QFileInfo(paths.first()).fileName())
-        : tr("Move %1 items to the Recycle Bin?").arg(paths.size());
+                                 ? tr("Move \"%1\" to the Recycle Bin?").arg(QFileInfo(paths.first()).fileName())
+                                 : tr("Move %1 items to the Recycle Bin?").arg(paths.size());
     if (QMessageBox::question(m_grid, tr("Delete"), question,
                               QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+    {
         return;
+    }
 
     for (const QString& p : paths)
+    {
         QFile::moveToTrash(p);   // recoverable (Recycle Bin / Trash)
+    }
     reloadEntries();
 }
 
@@ -691,17 +836,23 @@ void FolderBrowserPanel::renameSelection()
 {
     const QModelIndex idx = m_grid->currentIndex();
     if (idx.isValid())
+    {
         m_grid->edit(idx);   // inline editor; commit routes to ThumbnailModel::setData
+    }
 }
 
 void FolderBrowserPanel::copyPathOfSelection()
 {
     const QStringList paths = selectedPaths();
     if (paths.isEmpty())
+    {
         return;
+    }
     QStringList quoted;
     for (const QString& p : paths)
+    {
         quoted << '"' + QDir::toNativeSeparators(p) + '"';
+    }
     QApplication::clipboard()->setText(quoted.join(' '));
 }
 
@@ -709,7 +860,9 @@ void FolderBrowserPanel::showSelectionInExplorer()
 {
     const QStringList paths = selectedPaths();
     if (paths.isEmpty())
+    {
         return;
+    }
     const QString path = paths.first();
 #if defined(Q_OS_WIN)
     QProcess::startDetached("explorer.exe", { "/select," + QDir::toNativeSeparators(path) });
@@ -729,21 +882,29 @@ void FolderBrowserPanel::onFolderSelected(const QModelIndex& index)
 {
     const QString dir = m_dirModel->filePath(index);
     if (dir.isEmpty())
+    {
         return;
+    }
 
     m_currentPath = dir;
-    reloadEntries();                       // fill the grid (folders first, sorted)
+    reloadEntries();   // fill the grid (folders first, sorted)
 
     if (m_location)
+    {
         m_location->setPath(dir);
+    }
 
     // Record the visit unless we got here by pressing Back/Forward.
     if (!m_inHistoryNav)
     {
         if (m_histIndex < m_history.size() - 1)
+        {
             m_history.erase(m_history.begin() + m_histIndex + 1, m_history.end());
+        }
         if (m_history.isEmpty() || m_history.last() != dir)
+        {
             m_history.append(dir);
+        }
         m_histIndex = m_history.size() - 1;
     }
     updateNavActions();
@@ -754,18 +915,28 @@ void FolderBrowserPanel::onFolderSelected(const QModelIndex& index)
 void FolderBrowserPanel::onThumbSelected(const QModelIndex& index)
 {
     if (!m_thumbs->isDir(index))
+    {
         emit previewRequested(m_thumbs->filePath(index));
+    }
     else
+    {
         emit previewRequested(QString());
+    }
 }
 
 void FolderBrowserPanel::onThumbActivated(const QModelIndex& index)
 {
     const QString path = m_thumbs->filePath(index);
     if (path.isEmpty())
+    {
         return;
+    }
     if (m_thumbs->isDir(index))
-        openFolder(path);           // navigate into the sub-folder
+    {
+        openFolder(path);   // navigate into the sub-folder
+    }
     else
-        emit imageActivated(path);  // MainWindow opens it in the viewer
+    {
+        emit imageActivated(path);   // MainWindow opens it in the viewer
+    }
 }

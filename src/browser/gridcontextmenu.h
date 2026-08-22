@@ -27,11 +27,11 @@ public:
 
     explicit GridContextMenu(const Actions& actions, QWidget* parent = nullptr);
 
-    void popupForItem(const QPoint& globalPos);                  // clicked a file/folder
-    void popupForEmpty(const QPoint& globalPos, bool canPaste);  // clicked empty space
+    void popupForItem(const QPoint& globalPos);                   // clicked a file/folder
+    void popupForEmpty(const QPoint& globalPos, bool canPaste);   // clicked empty space
 
 private:
     Actions m_actions;
 };
 
-#endif // GRIDCONTEXTMENU_H
+#endif   // GRIDCONTEXTMENU_H

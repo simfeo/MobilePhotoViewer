@@ -33,11 +33,11 @@ private:
     void enterEditMode();
     void showCrumbs();
 
-    QString          m_path;
-    QStackedWidget*  m_stack;
-    QWidget*         m_crumbPage;
-    QHBoxLayout*     m_crumbLayout;
-    QLineEdit*       m_edit;
+    QString         m_path;
+    QStackedWidget* m_stack;
+    QWidget*        m_crumbPage;
+    QHBoxLayout*    m_crumbLayout;
+    QLineEdit*      m_edit;
 };
 
-#endif // LOCATIONBAR_H
+#endif   // LOCATIONBAR_H

@@ -12,6 +12,6 @@ namespace JpegRepair
 {
     // 'box' > 0 scales the decode down to fit a box x box square (thumbnails).
     QImage read(const QString& path, bool autoTransform, int box = 0);
-}
+}   // namespace JpegRepair
 
-#endif // JPEGREPAIR_H
+#endif   // JPEGREPAIR_H

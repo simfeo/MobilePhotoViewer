@@ -1,8 +1,9 @@
 #include "imagewithvideobase.h"
 
-ImageWithVideoBase::ImageWithVideoBase():m_memoryVideo(nullptr)
-{}
-
+ImageWithVideoBase::ImageWithVideoBase()
+    : m_memoryVideo(nullptr)
+{
+}
 
 bool ImageWithVideoBase::HasMicrovideo()
 {

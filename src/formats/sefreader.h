@@ -29,6 +29,6 @@ namespace Sef
 
     // True if the block payload begins with an ISO-BMFF box header, i.e. a clip.
     bool isIsoBmff(const uint8_t* data, size_t size, const Block& block);
-}
+}   // namespace Sef
 
-#endif // SEFREADER_H
+#endif   // SEFREADER_H

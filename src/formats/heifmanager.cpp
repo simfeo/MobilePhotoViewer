@@ -4,12 +4,12 @@
 #include <QImage>
 
 #include <iostream>
-#include <fstream>  // std::ifstream
+#include <fstream>   // std::ifstream
 #include <vector>
-#include <algorithm>  // std::ranges::copy_n
+#include <algorithm>   // std::ranges::copy_n
 
-//#include "heifreader.h"
-//#include <Heif.h>
+// #include "heifreader.h"
+// #include <Heif.h>
 
 #include <libheif/heif.h>
 #include <libheif/heif_cxx.h>
@@ -17,18 +17,16 @@
 #include "heifreader.h"
 
 HeifManager::HeifManager(const QString& imgPath)
-    : m_width(0)
-    , m_height(0)
-    , m_imagePath(imgPath)
-    , m_decodedImage(nullptr)
+    : m_width(0), m_height(0), m_imagePath(imgPath), m_decodedImage(nullptr)
 {
     manageHeif();
 }
 
 void HeifManager::manageHeif()
 {
-    std::shared_ptr<std::ifstream> istr(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
-    uint8_t magic[12];
+    std::shared_ptr<std::ifstream> istr(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p)
+                                        {if (p) { p->close(), delete p; } });
+    uint8_t                        magic[12];
     istr->read((char*)magic, 12);
     heif_filetype_result filetype_check = heif_check_filetype(magic, 12);
     if (filetype_check == heif_filetype_no)
@@ -43,7 +41,8 @@ void HeifManager::manageHeif()
         return;
     }
 
-    std::shared_ptr<heif_context> ctx(heif_context_alloc(), [](heif_context* p) {heif_context_free(p); });
+    std::shared_ptr<heif_context> ctx(heif_context_alloc(), [](heif_context* p)
+                                      { heif_context_free(p); });
     if (!ctx)
     {
         qDebug() << "Could not create context object\n";
@@ -80,8 +79,9 @@ void HeifManager::manageHeif()
             return;
         }
 
-//        int has_alpha = heif_image_handle_has_alpha_channel(handle);
-        std::shared_ptr<heif_decoding_options> decode_options(heif_decoding_options_alloc(), [](heif_decoding_options* p) {heif_decoding_options_free(p); });
+        //        int has_alpha = heif_image_handle_has_alpha_channel(handle);
+        std::shared_ptr<heif_decoding_options> decode_options(heif_decoding_options_alloc(), [](heif_decoding_options* p)
+                                                              { heif_decoding_options_free(p); });
         //      encoder->UpdateDecodingOptions(handle, decode_options);
 
         int bit_depth = heif_image_handle_get_luma_bits_per_pixel(handle);
@@ -94,13 +94,13 @@ void HeifManager::manageHeif()
         }
 
         struct heif_image* image;
-        //if (has_alpha)
+        // if (has_alpha)
         //{
         err = heif_decode_image(handle,
-            &image,
-            heif_colorspace_RGB,
-            heif_chroma_interleaved_RGBA,
-            decode_options.get());
+                                &image,
+                                heif_colorspace_RGB,
+                                heif_chroma_interleaved_RGBA,
+                                decode_options.get());
 
         if (err.code)
         {
@@ -109,36 +109,31 @@ void HeifManager::manageHeif()
             return;
         }
 
-        std::shared_ptr<heif_image> img(image, [](heif_image* p) { heif_image_release(p); });
+        std::shared_ptr<heif_image> img(image, [](heif_image* p)
+                                        { heif_image_release(p); });
 
         qDebug() << "decoded image dimesions"
                  << heif_image_get_width(img.get(), heif_channel_interleaved) << "x"
                  << heif_image_get_height(img.get(), heif_channel_interleaved);
 
-        int r_stride = 0;
+        int            r_stride  = 0;
         const uint8_t* img_plane = heif_image_get_plane_readonly(img.get(), heif_channel_interleaved, &r_stride);
 
-        m_width = heif_image_get_width(img.get(), heif_channel_interleaved);
+        m_width  = heif_image_get_width(img.get(), heif_channel_interleaved);
         m_height = heif_image_get_height(img.get(), heif_channel_interleaved);
         qDebug() << "native dimesions" << m_width << "x" << m_height;
         if (img_plane)
         {
-            m_decodedImage.reset(new uint8_t[m_height * r_stride], [](uint8_t* p) { delete[] p; });
+            m_decodedImage.reset(new uint8_t[m_height * r_stride], [](uint8_t* p)
+                                 { delete[] p; });
             std::ranges::copy_n(img_plane, m_height * r_stride, m_decodedImage.get());
         }
-
     }
-    
+
     HeifReader heif;
     heif.load(*istr.get());
     SefdBox sf = heif.getSefdBox();
-    if (sf.getSize() != 0
-        && sf.getFtyp().getSize() != 0
-        && sf.getFtyp().GetMajorBand() == "mp42"
-        && sf.getMdat().getSize() != 0
-        && sf.getMdat().startPosition() != 0
-        && sf.getMdat().endPosition() != 0
-        && sf.getFtypStartPos() < sf.getSize())   // guard the resize() below against underflow
+    if (sf.getSize() != 0 && sf.getFtyp().getSize() != 0 && sf.getFtyp().GetMajorBand() == "mp42" && sf.getMdat().getSize() != 0 && sf.getMdat().startPosition() != 0 && sf.getMdat().endPosition() != 0 && sf.getFtypStartPos() < sf.getSize())   // guard the resize() below against underflow
     {
         m_imageEXIF.MicroVideo.HasMicroVideo = 1;
         std::vector<uint8_t> videoData;
@@ -148,16 +143,17 @@ void HeifManager::manageHeif()
             istr->seekg(heif.getSefdOffset() + sf.getFtypStartPos());
             istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
             m_memoryVideo.reset(new QBuffer());
-            m_memoryVideo->setData(reinterpret_cast<char *>(videoData.data()), videoData.size());
+            m_memoryVideo->setData(reinterpret_cast<char*>(videoData.data()), videoData.size());
         }
         else
         {
-            istr.reset(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
+            istr.reset(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p)
+                       {if (p) { p->close(), delete p; } });
 
             istr->seekg(heif.getSefdOffset() + sf.getFtypStartPos());
             istr->read(reinterpret_cast<char*>(&videoData[0]), videoData.size());
             m_memoryVideo.reset(new QBuffer());
-            m_memoryVideo->setData(reinterpret_cast<char *>(videoData.data()), videoData.size());
+            m_memoryVideo->setData(reinterpret_cast<char*>(videoData.data()), videoData.size());
         }
     }
 
@@ -167,7 +163,8 @@ void HeifManager::manageHeif()
     {
         m_imageEXIF.MicroVideo.HasMicroVideo = 1;
         std::vector<uint8_t> videoData(heif.getMpvdVideoSize());
-        istr.reset(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
+        istr.reset(new std::ifstream(m_imagePath.toStdString().c_str(), std::ios_base::binary), [](std::ifstream* p)
+                   {if (p) { p->close(), delete p; } });
         istr->seekg(heif.getMpvdVideoOffset());
         istr->read(reinterpret_cast<char*>(videoData.data()), videoData.size());
         m_memoryVideo.reset(new QBuffer());

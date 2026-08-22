@@ -19,11 +19,11 @@ class MetadataPanel : public QObject
 public:
     explicit MetadataPanel(QObject* parent = nullptr);
 
-    QWidget* previewWidget()  const;   // scaled image preview
+    QWidget* previewWidget() const;    // scaled image preview
     QWidget* metadataWidget() const;   // property / value tree
 
 public slots:
-    void setFile(const QString& path); // empty path clears both panels
+    void setFile(const QString& path);   // empty path clears both panels
 
 protected:
     // QEvent::LanguageChange: QWidget forwards it to every QObject child, so this
@@ -38,4 +38,4 @@ private:
     QString      m_path;   // current file, so a language change can re-populate
 };
 
-#endif // METADATAPANEL_H
+#endif   // METADATAPANEL_H

@@ -9,7 +9,8 @@
 #include <QBuffer>
 #include <QVideoFrame>
 
-namespace Ui {
+namespace Ui
+{
     class ImageRenderWidget;
 }
 
@@ -50,9 +51,9 @@ public:
 
 signals:
     void playVideoButtonClickedSignal();
-    void backRequested();          // double-click in the viewer -> back to browsing
-    void panoramaRequested();      // the "360" overlay button was clicked
-    void depthRequested();         // the "3D" overlay button was clicked
+    void backRequested();       // double-click in the viewer -> back to browsing
+    void panoramaRequested();   // the "360" overlay button was clicked
+    void depthRequested();      // the "3D" overlay button was clicked
 
 private slots:
     void on_playButton_clicked();
@@ -70,8 +71,8 @@ private:
     // Re-applies the pills' labels and tooltips. The play/mute tooltips depend on
     // the current state, so this is called on state changes as well as on a
     // language change.
-    void   retranslateControls();
-    void   stopVideo();   // back to showing the still
+    void retranslateControls();
+    void stopVideo();   // back to showing the still
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -83,9 +84,9 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private:
-    Ui::ImageRenderWidget*          m_ui;
-    std::shared_ptr<QPixmap>        m_stillImage;
-    std::shared_ptr<QImage>         m_nextImage;
+    Ui::ImageRenderWidget*   m_ui;
+    std::shared_ptr<QPixmap> m_stillImage;
+    std::shared_ptr<QImage>  m_nextImage;
 
     // The clip is drawn straight into paintEvent() from the player's sink, rather
     // than through a QVideoWidget. Qt's QVideoWidget embeds a native QVideoWindow
@@ -99,12 +100,12 @@ private:
     QVideoFrame   m_frame;       // most recent frame; invalid when nothing decoded yet
     bool          m_showVideo;   // paint m_frame instead of the still
 
-    double  m_zoom;          // 1.0 == fit to window
-    QPointF m_imgTopLeft;    // top-left of the displayed still, in widget coords
+    double  m_zoom;         // 1.0 == fit to window
+    QPointF m_imgTopLeft;   // top-left of the displayed still, in widget coords
     bool    m_dragging;
     QPoint  m_dragLast;
-    bool    m_hasVideo;      // a motion-photo clip is loaded
-    bool    m_videoFillsStill = true;
+    bool    m_hasVideo;   // a motion-photo clip is loaded
+    bool    m_videoFillsStill    = true;
     int     m_videoExtraRotation = 0;
 
     // Overlay pills in the photo's top-left. Only one is ever visible: a photo is
@@ -124,4 +125,4 @@ private:
     QPushButton* m_depthButton;
 };
 
-#endif // IMAGERENDERWIDGET_H
+#endif   // IMAGERENDERWIDGET_H

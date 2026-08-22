@@ -3,10 +3,7 @@
 #include "ramfile.h"
 
 HeifBoxBase::HeifBoxBase(std::shared_ptr<Utils::RamFile> boxmem)
-    : m_size(0)
-    , m_type("")
-    , m_uid({})
-    , m_boxMemory(boxmem)
+    : m_size(0), m_type(""), m_uid({}), m_boxMemory(boxmem)
 {
 }
 
@@ -61,28 +58,17 @@ const uint64_t HeifBoxBase::getSize() const
 }
 
 HeifBoxBase::HeifBoxBase()
-    : m_size(0)
-    , m_type("")
-    , m_uid({})
-    , m_boxMemory(nullptr)
+    : m_size(0), m_type(""), m_uid({}), m_boxMemory(nullptr)
 {
 }
 
 SefdBox::SefdBox()
-    : HeifBoxBase()
-    , m_version(0)
-    , m_flags(0)
-    , m_ftypStartPos(0)
-    , m_ftyp()
-    , m_mdat()
+    : HeifBoxBase(), m_version(0), m_flags(0), m_ftypStartPos(0), m_ftyp(), m_mdat()
 {
 }
 
 SefdBox::SefdBox(std::shared_ptr<Utils::RamFile> boxMem)
-    : HeifBoxBase(boxMem)
-    , m_ftypStartPos(0)
-    , m_ftyp()
-    , m_mdat()
+    : HeifBoxBase(boxMem), m_ftypStartPos(0), m_ftyp(), m_mdat()
 {
     parseHeaderFull();
     parseSefd();
@@ -126,7 +112,7 @@ void SefdBox::parseSefd()
     while (!m_motionPhotoDataFound && m_size)
     {
         uint32_t next_field_length = 0;
-        uint8_t tmp_buf = 0;
+        uint8_t  tmp_buf           = 0;
         for (int i = 0; i < 4; ++i)
         {
             if (m_boxMemory->FileStreamRead(&tmp_buf, 1) < 1)
@@ -150,7 +136,7 @@ void SefdBox::parseSefd()
 
     while (true)
     {
-        size_t currentPos = m_boxMemory->getPosition();
+        size_t      currentPos = m_boxMemory->getPosition();
         HeifBoxBase box(m_boxMemory);
         box.parseHeaders();
         if (box.getType() == "ftyp")
@@ -202,7 +188,7 @@ void SefdBox::fillPropertyByType(std::string& ptype)
     {
         fillPropertyData(m_imageUtcData);
     }
-    else if (ptype == "MCC_Data") // nothing realy interesting
+    else if (ptype == "MCC_Data")   // nothing realy interesting
     {
         fillPropertyData(m_imageMCCData);
     }
@@ -213,8 +199,7 @@ void SefdBox::fillPropertyByType(std::string& ptype)
 }
 
 FtypBox::FtypBox()
-    : HeifBoxBase()
-    , m_version(0)
+    : HeifBoxBase(), m_version(0)
 {
 }
 
@@ -246,7 +231,7 @@ void FtypBox::parseHeaderFull()
     }
 
     uint32_t m_version = 0;
-    uint8_t tmp_buf = 0;
+    uint8_t  tmp_buf   = 0;
     for (int i = 0; i < 4; ++i)
     {
         if (m_boxMemory->FileStreamRead(&tmp_buf, 1) < 1)
@@ -270,12 +255,10 @@ void FtypBox::parseHeaderFull()
         }
         m_minorBrands.emplace_back(std::move(minType));
     }
-
 }
 
 MdatBox::MdatBox()
-    : m_startPos(0)
-    , m_endPos(0)
+    : m_startPos(0), m_endPos(0)
 {
 }
 
@@ -300,6 +283,6 @@ void MdatBox::parseHeaderFull()
     auto currentPos = m_boxMemory->getPosition();
     parseHeaders();
     m_startPos = m_boxMemory->getPosition();
-    m_endPos = currentPos + m_size - m_startPos;
+    m_endPos   = currentPos + m_size - m_startPos;
     m_boxMemory->setPosition(m_size + currentPos);
 }

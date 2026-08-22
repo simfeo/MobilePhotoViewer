@@ -1,24 +1,24 @@
 #include "ramfile.h"
 
-#include <algorithm>  // std::ranges::copy_n
-#include <cstdio>     // SEEK_SET / SEEK_CUR / SEEK_END
+#include <algorithm>   // std::ranges::copy_n
+#include <cstdio>      // SEEK_SET / SEEK_CUR / SEEK_END
 
 namespace Utils
 {
     RamFile::RamFile(std::vector<uint8_t>& invec)
-        :m_currentPos(0)
+        : m_currentPos(0)
     {
         m_bufferVec = std::move(invec);
-        m_length = m_bufferVec.size();
-        m_buffer = &m_bufferVec[0];
+        m_length    = m_bufferVec.size();
+        m_buffer    = &m_bufferVec[0];
     }
 
     RamFile::RamFile(uint8_t* buf, size_t len)
-        : m_length(len)
-        , m_currentPos(0)
+        : m_length(len), m_currentPos(0)
     {
         m_bufferVec.resize(len);
-        if (len > 0 && buf != nullptr) {
+        if (len > 0 && buf != nullptr)
+        {
             std::copy(buf, buf + len, m_bufferVec.begin());
             m_buffer = &m_bufferVec[0];
         }
@@ -87,14 +87,14 @@ namespace Utils
             return stream->setPosition(stream->getPosition() + offset) != -1 ? stream->getPosition() : -1;
         case SEEK_END:
             return stream->setPosition(stream->getSize() + offset) != -1 ? stream->getPosition() : -1;
-        // case AVSEEK_SIZE:
-        // {
-        //     // Special whence for determining filesize without any seek.
-        //     return stream->getSize();
-        // }
-        break;
+            // case AVSEEK_SIZE:
+            // {
+            //     // Special whence for determining filesize without any seek.
+            //     return stream->getSize();
+            // }
+            break;
         }
         return -1;
     }
 
-}
+}   // namespace Utils

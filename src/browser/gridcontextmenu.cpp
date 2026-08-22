@@ -3,8 +3,7 @@
 #include <QAction>
 
 GridContextMenu::GridContextMenu(const Actions& actions, QWidget* parent)
-    : QMenu(parent)
-    , m_actions(actions)
+    : QMenu(parent), m_actions(actions)
 {
 }
 

@@ -5,10 +5,9 @@
 #include <string>
 #include <string_view>
 #include <span>
-#include <algorithm>  // std::ranges::equal
+#include <algorithm>   // std::ranges::equal
 
 #include <QDebug>
-
 
 namespace
 {
@@ -52,22 +51,17 @@ namespace
 
         return HeifHelpers::OperationResult::Ok;
     }
-}
+}   // namespace
 
 HeifReader::HeifReader()
-    : m_readerState(ReaderState::UNINITIALIZED)
-    , m_streamLength(0)
-    , m_sefdOffset(0)
-    , m_sefd()
-    , m_mpvdOffset(0)
-    , m_mpvdSize(0)
+    : m_readerState(ReaderState::UNINITIALIZED), m_streamLength(0), m_sefdOffset(0), m_sefd(), m_mpvdOffset(0), m_mpvdSize(0)
 {
-
 }
 
 HeifHelpers::OperationResult HeifReader::load(const char* img_path)
 {
-    std::shared_ptr<std::ifstream> imgFile(new std::ifstream(img_path, std::ifstream::in | std::ifstream::binary), [](std::ifstream* p) {if (p) { p->close(), delete p; }});
+    std::shared_ptr<std::ifstream> imgFile(new std::ifstream(img_path, std::ifstream::in | std::ifstream::binary), [](std::ifstream* p)
+                                           {if (p) { p->close(), delete p; } });
     return load(*imgFile.get());
 }
 
@@ -79,7 +73,7 @@ HeifHelpers::OperationResult HeifReader::load(std::ifstream& fstream)
     }
 
     ReaderState prevState = m_readerState;
-    m_readerState = ReaderState::INITIALIZING;
+    m_readerState         = ReaderState::INITIALIZING;
 
     fstream.seekg(0, std::ios::beg);
     fstream.seekg(0, std::ios::end);
@@ -87,36 +81,27 @@ HeifHelpers::OperationResult HeifReader::load(std::ifstream& fstream)
     fstream.seekg(0, std::ios::beg);
     m_streamLength = stream_end;
 
-
-    bool sefd_found = false;
-    HeifHelpers::OperationResult result = HeifHelpers::OperationResult::Ok;
+    bool                         sefd_found = false;
+    HeifHelpers::OperationResult result     = HeifHelpers::OperationResult::Ok;
 
     try
     {
         while ((result == HeifHelpers::OperationResult::Ok) && stream_can_be_read(fstream))
         {
-            std::string boxType;
+            std::string  boxType;
             std::int64_t boxSize = 0;
-            //BitStream bitstream;
+            // BitStream bitstream;
             result = readBoxParameters(fstream, m_streamLength, boxType, boxSize);
             if (result == HeifHelpers::OperationResult::Ok)
             {
-                if (boxType == "ftyp"
-                    || boxType == "etyp"
-                    || boxType == "meta"
-                    || boxType == "moov"
-                    || boxType == "moof"
-                    || boxType == "mdat"
-                    || boxType == "free"
-                    || boxType == "skip"
-                    )
+                if (boxType == "ftyp" || boxType == "etyp" || boxType == "meta" || boxType == "moov" || boxType == "moof" || boxType == "mdat" || boxType == "free" || boxType == "skip")
                 {
                     result = skipBox(fstream);
                 }
 
                 else if (boxType == "sefd")
                 {
-                    result = handleSefd(fstream);
+                    result     = handleSefd(fstream);
                     sefd_found = true;
                 }
                 else if (boxType == "mpvd")
@@ -203,14 +188,13 @@ size_t HeifReader::getMpvdVideoSize() const
     return m_mpvdSize;
 }
 
-
 HeifHelpers::OperationResult HeifReader::skipBox(std::ifstream& fstream)
 {
     const std::int64_t start_location = fstream.tellg();
 
-    std::string boxType;
-    std::int64_t boxSize = 0;
-    HeifHelpers::OperationResult result = readBoxParameters(fstream, m_streamLength, boxType, boxSize);
+    std::string                  boxType;
+    std::int64_t                 boxSize = 0;
+    HeifHelpers::OperationResult result  = readBoxParameters(fstream, m_streamLength, boxType, boxSize);
     if (result != HeifHelpers::OperationResult::Ok)
     {
         return result;
@@ -224,12 +208,11 @@ HeifHelpers::OperationResult HeifReader::skipBox(std::ifstream& fstream)
     return HeifHelpers::OperationResult::Ok;
 }
 
-
 HeifHelpers::OperationResult HeifReader::handleSefd(std::ifstream& fstream)
 {
     std::vector<uint8_t> boxDataRaw;
-    m_sefdOffset = fstream.tellg();
-    HeifHelpers::OperationResult result = readBox(fstream, boxDataRaw);
+    m_sefdOffset                           = fstream.tellg();
+    HeifHelpers::OperationResult    result = readBox(fstream, boxDataRaw);
     std::shared_ptr<Utils::RamFile> boxData(new Utils::RamFile(boxDataRaw));
 
     if (result != HeifHelpers::OperationResult::Ok)
@@ -248,16 +231,16 @@ HeifHelpers::OperationResult HeifReader::handleMpvd(std::ifstream& fstream)
     // Record its offset/size so the caller can hand the clip straight to a player.
     const std::int64_t boxStart = fstream.tellg();
 
-    std::int64_t boxSize = 0;
-    HeifHelpers::OperationResult result = readBytes(fstream, 4, boxSize);   // 32-bit size
+    std::int64_t                 boxSize = 0;
+    HeifHelpers::OperationResult result  = readBytes(fstream, 4, boxSize);   // 32-bit size
     if (result != HeifHelpers::OperationResult::Ok)
     {
         return result;
     }
-    fstream.seekg(4, std::ios::cur);                                        // skip the 'mpvd' type
+    fstream.seekg(4, std::ios::cur);   // skip the 'mpvd' type
 
     size_t headerSize = 8;
-    if (boxSize == 1)                                                       // 64-bit extended size
+    if (boxSize == 1)   // 64-bit extended size
     {
         result = readBytes(fstream, 8, boxSize);
         if (result != HeifHelpers::OperationResult::Ok)
@@ -266,7 +249,7 @@ HeifHelpers::OperationResult HeifReader::handleMpvd(std::ifstream& fstream)
         }
         headerSize = 16;
     }
-    else if (boxSize == 0)                                                  // extends to end of stream
+    else if (boxSize == 0)   // extends to end of stream
     {
         boxSize = static_cast<std::int64_t>(m_streamLength) - boxStart;
     }
@@ -278,7 +261,7 @@ HeifHelpers::OperationResult HeifReader::handleMpvd(std::ifstream& fstream)
     }
 
     const std::int64_t payloadOffset = boxStart + static_cast<std::int64_t>(headerSize);
-    const std::int64_t payloadSize = boxSize - static_cast<std::int64_t>(headerSize);
+    const std::int64_t payloadSize   = boxSize - static_cast<std::int64_t>(headerSize);
 
     // Accept it only if the payload really is an ISO-BMFF clip (a '....ftyp' box).
     char magic[8] = { 0 };
@@ -287,11 +270,11 @@ HeifHelpers::OperationResult HeifReader::handleMpvd(std::ifstream& fstream)
     if (fstream.good() && payloadSize >= 8 && std::ranges::equal(std::span(magic + 4, 4), std::string_view("ftyp")))
     {
         m_mpvdOffset = static_cast<size_t>(payloadOffset);
-        m_mpvdSize = static_cast<size_t>(payloadSize);
+        m_mpvdSize   = static_cast<size_t>(payloadSize);
     }
 
-    fstream.clear();                       // clear any eof/fail flags from the peek read
-    fstream.seekg(boxStart + boxSize);     // advance past the box for the main loop
+    fstream.clear();                     // clear any eof/fail flags from the peek read
+    fstream.seekg(boxStart + boxSize);   // advance past the box for the main loop
     if (fstream.bad())
     {
         return HeifHelpers::OperationResult::FILE_READ_ERROR;
@@ -301,9 +284,9 @@ HeifHelpers::OperationResult HeifReader::handleMpvd(std::ifstream& fstream)
 
 HeifHelpers::OperationResult HeifReader::readBox(std::ifstream& fstream, std::vector<uint8_t>& bitstream)
 {
-    std::string boxType;
-    std::int64_t boxSize = 0;
-    HeifHelpers::OperationResult result = readBoxParameters(fstream, m_streamLength, boxType, boxSize);
+    std::string                  boxType;
+    std::int64_t                 boxSize = 0;
+    HeifHelpers::OperationResult result  = readBoxParameters(fstream, m_streamLength, boxType, boxSize);
     if (result != HeifHelpers::OperationResult::Ok)
     {
         return result;

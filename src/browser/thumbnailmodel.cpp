@@ -14,8 +14,7 @@
 #include "formats/heifmanager.h"
 
 ThumbnailModel::ThumbnailModel(QObject* parent)
-    : QAbstractListModel(parent)
-    , m_pool(new QThreadPool(this))
+    : QAbstractListModel(parent), m_pool(new QThreadPool(this))
 {
     m_pool->setMaxThreadCount(4);
 
@@ -48,7 +47,9 @@ void ThumbnailModel::setEntries(const QList<QFileInfo>& entries)
 QString ThumbnailModel::filePath(const QModelIndex& index) const
 {
     if (index.isValid() && index.row() < m_files.size())
+    {
         return m_files.at(index.row());
+    }
     return QString();
 }
 
@@ -73,25 +74,31 @@ int ThumbnailModel::rowCount(const QModelIndex& parent) const
 QVariant ThumbnailModel::data(const QModelIndex& index, int role) const
 {
     if (!index.isValid() || index.row() >= m_files.size())
+    {
         return QVariant();
+    }
 
     const QString path = m_files.at(index.row());
-    const bool dir = m_dirs.at(index.row());
+    const bool    dir  = m_dirs.at(index.row());
 
     switch (role)
     {
     case Qt::DisplayRole:
-    case Qt::EditRole:                         // prefill the rename editor
+    case Qt::EditRole:   // prefill the rename editor
         return QFileInfo(path).fileName();
     case Qt::ToolTipRole:
         return path;
     case Qt::DecorationRole:
     {
         if (dir)
+        {
             return m_folderIcon;
+        }
         auto it = m_cache.constFind(path);
         if (it != m_cache.constEnd())
+        {
             return QIcon(it.value());
+        }
         requestThumbnail(path);
         return QIcon(m_placeholder);
     }
@@ -108,7 +115,9 @@ Qt::ItemFlags ThumbnailModel::flags(const QModelIndex& index) const
         f |= Qt::ItemIsEditable;   // rename (files and folders)
         // Only images are draggable; folders are for navigation, not drag-out.
         if (index.row() < m_dirs.size() && !m_dirs.at(index.row()))
+        {
             f |= Qt::ItemIsDragEnabled;
+        }
     }
     return f;
 }
@@ -116,21 +125,29 @@ Qt::ItemFlags ThumbnailModel::flags(const QModelIndex& index) const
 bool ThumbnailModel::setData(const QModelIndex& index, const QVariant& value, int role)
 {
     if (role != Qt::EditRole || !index.isValid() || index.row() >= m_files.size())
+    {
         return false;
+    }
 
-    const QString newName = value.toString().trimmed();
-    const QString oldPath = m_files.at(index.row());
+    const QString   newName = value.toString().trimmed();
+    const QString   oldPath = m_files.at(index.row());
     const QFileInfo fi(oldPath);
     if (newName.isEmpty() || newName == fi.fileName())
+    {
         return false;
+    }
 
     const QString newPath = fi.absolutePath() + '/' + newName;
     if (QFile::exists(newPath) || !QFile::rename(oldPath, newPath))
+    {
         return false;   // refuse to clobber an existing file / failed rename
+    }
 
     m_files[index.row()] = newPath;
     if (m_cache.contains(oldPath))
+    {
         m_cache.insert(newPath, m_cache.take(oldPath));   // keep the thumbnail
+    }
     emit dataChanged(index, index,
                      { Qt::DisplayRole, Qt::EditRole, Qt::ToolTipRole, Qt::DecorationRole });
     return true;
@@ -148,13 +165,19 @@ QMimeData* ThumbnailModel::mimeData(const QModelIndexList& indexes) const
     {
         const int row = index.row();
         if (!index.isValid() || row >= m_files.size())
+        {
             continue;
+        }
         if (row < m_dirs.size() && m_dirs.at(row))
+        {
             continue;   // skip folders -- images only
+        }
         urls.append(QUrl::fromLocalFile(m_files.at(row)));
     }
     if (urls.isEmpty())
+    {
         return nullptr;
+    }
 
     QMimeData* mime = new QMimeData;
     mime->setUrls(urls);   // text/uri-list -> Explorer copy, Telegram/WhatsApp share
@@ -169,12 +192,15 @@ Qt::DropActions ThumbnailModel::supportedDragActions() const
 void ThumbnailModel::requestThumbnail(const QString& path) const
 {
     if (m_pending.contains(path))
+    {
         return;
+    }
     m_pending.insert(path);
 
     ThumbnailModel* self = const_cast<ThumbnailModel*>(this);
-    const int box = kThumb;
-    m_pool->start([self, path, box]() {
+    const int       box  = kThumb;
+    m_pool->start([self, path, box]()
+                  {
         QImage img;
         const QString lower = path.toLower();
         if (lower.endsWith("heic") || lower.endsWith("heif"))
@@ -195,8 +221,7 @@ void ThumbnailModel::requestThumbnail(const QString& path) const
             img = JpegRepair::read(path, true, box);
         }
         QMetaObject::invokeMethod(self, "onThumbnailReady", Qt::QueuedConnection,
-                                  Q_ARG(QString, path), Q_ARG(QImage, img));
-    });
+                                  Q_ARG(QString, path), Q_ARG(QImage, img)); });
 }
 
 void ThumbnailModel::onThumbnailReady(const QString& path, const QImage& image)
@@ -210,7 +235,7 @@ void ThumbnailModel::onThumbnailReady(const QString& path, const QImage& image)
         QPixmap canvas(kThumb, kThumb);
         canvas.fill(Qt::transparent);
         const QPixmap thumb = QPixmap::fromImage(image);
-        QPainter p(&canvas);
+        QPainter      p(&canvas);
         p.drawPixmap((kThumb - thumb.width()) / 2, (kThumb - thumb.height()) / 2, thumb);
         p.end();
         m_cache.insert(path, canvas);
@@ -220,6 +245,6 @@ void ThumbnailModel::onThumbnailReady(const QString& path, const QImage& image)
     if (row >= 0)
     {
         const QModelIndex idx = index(row);
-        emit dataChanged(idx, idx, { Qt::DecorationRole });
+        emit              dataChanged(idx, idx, { Qt::DecorationRole });
     }
 }

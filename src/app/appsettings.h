@@ -12,17 +12,17 @@
 // main().
 namespace AppSettings
 {
-    bool    useLastFolder();                 // start from the last folder we browsed
-    void    setUseLastFolder(bool on);
+    bool useLastFolder();   // start from the last folder we browsed
+    void setUseLastFolder(bool on);
 
-    QString startFolder();                   // fixed start folder (default: home)
+    QString startFolder();   // fixed start folder (default: home)
     void    setStartFolder(const QString& path);
 
-    QString lastFolder();                    // last folder actually browsed
+    QString lastFolder();   // last folder actually browsed
     void    setLastFolder(const QString& path);
 
-    int     defaultThumbSize();              // thumbnail size at launch (px)
-    void    setDefaultThumbSize(int px);
+    int  defaultThumbSize();   // thumbnail size at launch (px)
+    void setDefaultThumbSize(int px);
 
     // UI language as an ISO code ("en", "ru", ...). Empty means "follow the
     // system locale", which is the default. Applied by installTranslator() at
@@ -42,10 +42,10 @@ namespace AppSettings
     // size/position; state is the dock/toolbar arrangement (QMainWindow::saveState).
     QByteArray windowGeometry();
     void       setWindowGeometry(const QByteArray& data);
-    void       clearWindowGeometry();       // for --reset-window
+    void       clearWindowGeometry();   // for --reset-window
 
     QByteArray windowState();
     void       setWindowState(const QByteArray& data);
-}
+}   // namespace AppSettings
 
-#endif // APPSETTINGS_H
+#endif   // APPSETTINGS_H

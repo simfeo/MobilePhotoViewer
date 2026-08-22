@@ -20,7 +20,7 @@ public:
 
 private slots:
     void browseForStartFolder();
-    void save();                       // write fields to AppSettings, then accept()
+    void save();   // write fields to AppSettings, then accept()
 
 private:
     void load();                       // pull current values into the fields
@@ -33,4 +33,4 @@ private:
     QComboBox* m_language;
 };
 
-#endif // SETTINGSDIALOG_H
+#endif   // SETTINGSDIALOG_H

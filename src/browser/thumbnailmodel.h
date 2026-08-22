@@ -10,7 +10,8 @@
 #include <QIcon>
 
 class QThreadPool;
-template<typename T> class QList;
+template <typename T>
+class QList;
 class QFileInfo;
 class QMimeData;
 
@@ -29,7 +30,7 @@ public:
 
     int      rowCount(const QModelIndex& parent = QModelIndex()) const override;
     QVariant data(const QModelIndex& index, int role) const override;
-    bool     setData(const QModelIndex& index, const QVariant& value, int role) override;  // rename
+    bool     setData(const QModelIndex& index, const QVariant& value, int role) override;   // rename
 
     // Dragging entries out of the app: hand the selected files to the OS as a
     // uri-list so a drop copies them (Explorer) or shares them (Telegram, ...).
@@ -57,4 +58,4 @@ private:
     QThreadPool*                    m_pool;
 };
 
-#endif // THUMBNAILMODEL_H
+#endif   // THUMBNAILMODEL_H

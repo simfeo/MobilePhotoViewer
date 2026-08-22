@@ -7,9 +7,11 @@
 #include "formats/imagewithvideobase.h"
 #include "app/i18n.h"
 
-
 QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
+namespace Ui
+{
+    class MainWindow;
+}
 QT_END_NAMESPACE
 
 class QDropEvent;
@@ -38,14 +40,14 @@ public:
 
     // QWidget interface
 protected:
-    void dropEvent(QDropEvent *event) override;
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dragMoveEvent(QDragMoveEvent *event) override;
-    void dragLeaveEvent(QDragLeaveEvent *event) override;
-    void wheelEvent(QWheelEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
-    void closeEvent(QCloseEvent *event) override;   // persist window layout
-    void changeEvent(QEvent *event) override;       // QEvent::LanguageChange -> retranslate
+    void dropEvent(QDropEvent* event) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dragLeaveEvent(QDragLeaveEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;   // persist window layout
+    void changeEvent(QEvent* event) override;       // QEvent::LanguageChange -> retranslate
 
 private slots:
     void onOpenFile();
@@ -60,7 +62,7 @@ private slots:
 private:
     void setupBrowser();
     void setupMenus();
-    void restoreLayout();   // capture default state, then apply any saved layout
+    void restoreLayout();                       // capture default state, then apply any saved layout
     bool detectPanorama(const QString& path);   // fills m_pano* if equirectangular
     void showPanorama();                        // build the sphere and switch to it
     void showDepth();                           // feed the parallax viewer and switch to it
@@ -69,13 +71,13 @@ private:
     void setFullScreenView(bool on);
     void stepImage(int delta);
 
-    Ui::MainWindow*     ui;
-    QString             m_currentPath;
-    QByteArray          m_defaultState;   // dock/toolbar layout as first built
-    Retranslator        m_i18n;           // re-applies menu/dock texts on language change
+    Ui::MainWindow* ui;
+    QString         m_currentPath;
+    QByteArray      m_defaultState;   // dock/toolbar layout as first built
+    Retranslator    m_i18n;           // re-applies menu/dock texts on language change
     // Window state (maximized or not) as it was before going full screen, so
     // leaving full screen restores it instead of always dropping to normal.
-    Qt::WindowStates    m_preFullScreenState = Qt::WindowNoState;
+    Qt::WindowStates                    m_preFullScreenState = Qt::WindowNoState;
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
 
     // browsing mode
@@ -88,9 +90,9 @@ private:
     DepthWidget*        m_depth;
 
     // current image's panorama metadata (valid when m_isPano)
-    bool m_isPano = false;
+    bool m_isPano          = false;
     bool m_panoCylindrical = false;   // cylindrical vs equirectangular projection
     int  m_panoFullW = 0, m_panoFullH = 0;
     int  m_panoCropW = 0, m_panoCropH = 0, m_panoCropL = 0, m_panoCropT = 0;
 };
-#endif // MAINWINDOW_H
+#endif   // MAINWINDOW_H

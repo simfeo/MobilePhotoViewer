@@ -16,7 +16,7 @@ namespace I18n
     // every top-level widget (QWidget forwards it to its children), which is
     // what drives the live retranslation below.
     void apply(const QString& code);
-}
+}   // namespace I18n
 
 // Collects "re-apply this text" closures so a widget can restore every
 // translatable string on QEvent::LanguageChange without having to keep a member
@@ -40,11 +40,13 @@ public:
     void retranslate() const
     {
         for (const auto& fn : m_fns)
+        {
             fn();
+        }
     }
 
 private:
     std::vector<std::function<void()>> m_fns;
 };
 
-#endif // I18N_H
+#endif   // I18N_H

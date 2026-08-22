@@ -9,11 +9,11 @@ class ImageWithVideoBase
 public:
     ImageWithVideoBase();
 
-    bool HasMicrovideo();
+    bool                     HasMicrovideo();
     std::shared_ptr<QBuffer> getVideoMemory();
 
     // 8-bit grayscale, white nearest the camera; null when the shot has no depth.
-    bool HasDepthMap() const;
+    bool   HasDepthMap() const;
     QImage getDepthMap() const;
 
     // Motion-photo clips are framed like the still and carry their own rotation.
@@ -24,7 +24,6 @@ public:
 
     // Samsung sweep panoramas carry no GPano geometry, only a container marker.
     bool IsPanoramaShot() const;
-
 
     virtual size_t getWidth() const
     {
@@ -42,11 +41,11 @@ public:
     }
 
 protected:
-    std::shared_ptr<QBuffer>    m_memoryVideo;
-    QImage                      m_depthMap;
-    bool                        m_videoFillsStill = true;
-    int                         m_videoExtraRotation = 0;
-    bool                        m_panoramaShot = false;
+    std::shared_ptr<QBuffer> m_memoryVideo;
+    QImage                   m_depthMap;
+    bool                     m_videoFillsStill    = true;
+    int                      m_videoExtraRotation = 0;
+    bool                     m_panoramaShot       = false;
 };
 
-#endif // IMAGEWITHVIDEOBASE_H
+#endif   // IMAGEWITHVIDEOBASE_H

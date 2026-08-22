@@ -1,0 +1,26 @@
+# Matches the existing hand-written style: Allman braces, 4 spaces, no line
+# reflow. third_party/ is not formatted -- those are upstream submodules.
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 0
+BreakBeforeBraces: Allman
+InsertBraces: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
+NamespaceIndentation: All
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveAssignments: Consecutive
+AlignTrailingComments:
+  Kind: Always
+SpacesBeforeTrailingComments: 3
+Cpp11BracedListStyle: false
+KeepEmptyLinesAtTheStartOfBlocks: true
+SortIncludes: Never
+PointerAlignment: Left
+AccessModifierOffset: -4

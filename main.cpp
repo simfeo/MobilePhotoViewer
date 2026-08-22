@@ -31,9 +31,13 @@ int main(int argc, char* argv[])
     for (const QString& arg : QCoreApplication::arguments().mid(1))
     {
         if (arg == "--reset-window")
+        {
             AppSettings::clearWindowGeometry();
+        }
         else if (!arg.startsWith("--") && openPath.isEmpty())
+        {
             openPath = arg;
+        }
     }
 
     MainWindow w;
@@ -41,9 +45,13 @@ int main(int argc, char* argv[])
     if (!openPath.isEmpty())
     {
         if (QFileInfo(openPath).isDir())
+        {
             w.OpenFolder(openPath);
+        }
         else
+        {
             w.SetImage(openPath);
+        }
     }
     return a.exec();
 }

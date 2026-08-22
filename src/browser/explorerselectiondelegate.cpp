@@ -1,7 +1,7 @@
 #include "explorerselectiondelegate.h"
 #include <QPainter>
 
-void ExplorerSelectionDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+void ExplorerSelectionDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
     QStyleOptionViewItem opt = option;
     initStyleOption(&opt, index);
@@ -12,8 +12,8 @@ void ExplorerSelectionDelegate::paint(QPainter *painter, const QStyleOptionViewI
         painter->setRenderHint(QPainter::Antialiasing);
 
         // Translucent colors for Windows Explorer dark theme
-        QColor fillColor(0, 120, 215, 35);     // Light blue background fill
-        QColor borderColor(0, 120, 215, 150);  // Brighter blue outline border
+        QColor fillColor(0, 120, 215, 35);      // Light blue background fill
+        QColor borderColor(0, 120, 215, 150);   // Brighter blue outline border
 
         // 1. Draw the selection background fill
         painter->setPen(Qt::NoPen);
@@ -36,4 +36,3 @@ void ExplorerSelectionDelegate::paint(QPainter *painter, const QStyleOptionViewI
         QStyledItemDelegate::paint(painter, opt, index);
     }
 }
-

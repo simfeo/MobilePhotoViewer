@@ -22,7 +22,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     setWindowTitle(tr("Settings"));
 
     // ---- Startup group ----
-    QGroupBox* startupBox = new QGroupBox(tr("Startup"), this);
+    QGroupBox*   startupBox    = new QGroupBox(tr("Startup"), this);
     QVBoxLayout* startupLayout = new QVBoxLayout(startupBox);
 
     m_useLastFolder = new QCheckBox(tr("Start from the last opened folder"), startupBox);
@@ -37,7 +37,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     startupLayout->addLayout(folderRow);
 
     // ---- Thumbnails group ----
-    QGroupBox* thumbBox = new QGroupBox(tr("Thumbnails"), this);
+    QGroupBox*   thumbBox    = new QGroupBox(tr("Thumbnails"), this);
     QFormLayout* thumbLayout = new QFormLayout(thumbBox);
 
     m_thumbSize = new QSlider(Qt::Horizontal, thumbBox);
@@ -55,12 +55,14 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     thumbLayout->addRow(tr("Default size:"), thumbRow);
 
     // ---- Appearance group ----
-    QGroupBox* uiBox = new QGroupBox(tr("Appearance"), this);
+    QGroupBox*   uiBox    = new QGroupBox(tr("Appearance"), this);
     QFormLayout* uiLayout = new QFormLayout(uiBox);
 
     m_language = new QComboBox(uiBox);
     for (const auto& [code, name] : AppSettings::availableLanguages())
+    {
         m_language->addItem(name, code);
+    }
     uiLayout->addRow(tr("Language:"), m_language);
 
     // ---- Buttons ----
@@ -77,7 +79,8 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     connect(browse, &QPushButton::clicked, this, &SettingsDialog::browseForStartFolder);
     connect(m_useLastFolder, &QCheckBox::toggled, this, &SettingsDialog::updateStartFolderEnabled);
     connect(m_thumbSize, &QSlider::valueChanged, this,
-            [this](int px) { m_thumbValue->setText(tr("%1 px").arg(px)); });
+            [this](int px)
+            { m_thumbValue->setText(tr("%1 px").arg(px)); });
     connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::save);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
@@ -106,13 +109,15 @@ void SettingsDialog::browseForStartFolder()
     const QString dir = QFileDialog::getExistingDirectory(
         this, tr("Choose Start Folder"), m_startFolder->text());
     if (!dir.isEmpty())
+    {
         m_startFolder->setText(dir);
+    }
 }
 
 void SettingsDialog::save()
 {
-    const QString language = m_language->currentData().toString();
-    const bool languageChanged = (language != AppSettings::language());
+    const QString language        = m_language->currentData().toString();
+    const bool    languageChanged = (language != AppSettings::language());
 
     AppSettings::setUseLastFolder(m_useLastFolder->isChecked());
     AppSettings::setStartFolder(m_startFolder->text());
@@ -122,6 +127,8 @@ void SettingsDialog::save()
     // Swap the translators straight away: Qt then sends QEvent::LanguageChange to
     // the widgets, which re-apply their strings. No restart needed.
     if (languageChanged)
+    {
         I18n::apply(language);
+    }
     accept();
 }
