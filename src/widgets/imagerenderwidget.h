@@ -35,9 +35,14 @@ public:
     ~ImageRenderWidget();
 
     void SetPixmap(const QPixmap& image);
+    // Swaps the displayed still only. SetPixmap() starts a new photo: it stops the
+    // clip and clears the overlays, which a frame switch must not do.
+    void SetStillImage(const QPixmap& image);
     void SetPlayButtonVisible(bool state);
     void SetPanoramaButtonVisible(bool state);
     void SetDepthButtonVisible(bool state);
+    // Source-frame switcher: hidden when total < 2. 'current' is 1-based.
+    void SetFrameSwitch(int current, int total);
     void SetVideoManager(std::shared_ptr<QBuffer> videoBuff);
     // Sweep footage does not share the still's framing: it is letterboxed at its
     // own aspect and turned by 'extraRotation' degrees to match the still.
@@ -51,9 +56,10 @@ public:
 
 signals:
     void playVideoButtonClickedSignal();
-    void backRequested();       // double-click in the viewer -> back to browsing
-    void panoramaRequested();   // the "360" overlay button was clicked
-    void depthRequested();      // the "3D" overlay button was clicked
+    void backRequested();          // double-click in the viewer -> back to browsing
+    void panoramaRequested();      // the "360" overlay button was clicked
+    void depthRequested();         // the "3D" overlay button was clicked
+    void frameSwitchRequested();   // the source-frame pill was clicked
 
 private slots:
     void on_playButton_clicked();
@@ -123,6 +129,12 @@ private:
     QFrame*      m_depthPill;
     QLabel*      m_depthLabel;
     QPushButton* m_depthButton;
+    // Frames: sits on a second row, below the others, and cycles the source
+    // frames DualShot/FocusShot stored alongside the still.
+    QFrame*      m_framePill;
+    QPushButton* m_frameButton;
+    int          m_frameCurrent = 1;
+    int          m_frameTotal   = 1;
 };
 
 #endif   // IMAGERENDERWIDGET_H

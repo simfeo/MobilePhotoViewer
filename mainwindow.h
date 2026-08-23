@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <QImage>
 #include <QMainWindow>
 #include <QString>
 #include <QByteArray>
@@ -67,6 +68,7 @@ private:
     void showPanorama();                        // build the sphere and switch to it
     void showDepth();                           // feed the parallax viewer and switch to it
     void showViewMode();
+    void switchSourceFrame();   // cycle the still through the SEF source frames
     void showBrowseMode();
     void setFullScreenView(bool on);
     void stepImage(int delta);
@@ -79,6 +81,9 @@ private:
     // leaving full screen restores it instead of always dropping to normal.
     Qt::WindowStates                    m_preFullScreenState = Qt::WindowNoState;
     std::shared_ptr<ImageWithVideoBase> m_imageManager;
+    // Source-frame switcher: 0 is the still as shipped, 1..n the SEF frames.
+    int    m_frameIndex = 0;
+    QImage m_baseFrame;
 
     // browsing mode
     QStackedWidget*     m_stack;

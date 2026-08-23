@@ -2,7 +2,11 @@
 #define IMAGEWITHVIDEOBASE_H
 
 #include <QBuffer>
+#include <QByteArray>
 #include <QImage>
+
+#include <cstdint>
+#include <vector>
 
 class ImageWithVideoBase
 {
@@ -25,6 +29,17 @@ public:
     // Samsung sweep panoramas carry no GPano geometry, only a container marker.
     bool IsPanoramaShot() const;
 
+    // Full-resolution source frames the capture kept beside the still, as encoded
+    // JPEG bytes. Empty for an ordinary photo.
+    // EXIF Orientation of the still, 1 when absent. The source frames are stored
+    // in sensor orientation, so they need this rather than their own tag: the
+    // user may have rotated the file, which only rewrites the still's.
+    uint32_t      StillOrientation() const;
+    static QImage ApplyExifOrientation(const QImage& img, uint32_t orientation);
+
+    int        AlternateFrameCount() const;
+    QByteArray GetAlternateFrame(int index) const;
+
     virtual size_t getWidth() const
     {
         return 0;
@@ -46,6 +61,8 @@ protected:
     bool                     m_videoFillsStill    = true;
     int                      m_videoExtraRotation = 0;
     bool                     m_panoramaShot       = false;
+    std::vector<QByteArray>  m_altFrames;
+    uint32_t                 m_stillOrientation = 1;
 };
 
 #endif   // IMAGEWITHVIDEOBASE_H

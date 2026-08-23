@@ -1,4 +1,6 @@
 #include "imagerenderwidget.h"
+
+#include <algorithm>
 #include "ui_imagerenderwidget.h"
 
 #include <QPainter>
@@ -107,6 +109,23 @@ ImageRenderWidget::ImageRenderWidget(QWidget* parent)
     depthLayout->addWidget(m_depthButton);
     m_depthPill->hide();
 
+    // Source-frame switcher (DualShot/FocusShot keep the frames they merged).
+    m_frameButton = new QPushButton(this);
+    m_frameButton->setCursor(Qt::PointingHandCursor);
+    // Same look as the icon buttons, but it holds a sentence, so it needs padding.
+    m_frameButton->setStyleSheet(QString(kPillButtonQss) + "QPushButton{padding:0 8px;font-size:12px;font-weight:bold;}");
+    connect(m_frameButton, &QPushButton::clicked, this, [this]
+            { emit frameSwitchRequested(); });
+
+    m_framePill = new QFrame(this);
+    m_framePill->setObjectName("framePill");
+    m_framePill->setStyleSheet("#framePill{background:rgba(0,0,0,140);border-radius:15px;}");
+    auto* frameLayout = new QHBoxLayout(m_framePill);
+    frameLayout->setContentsMargins(5, 4, 5, 4);
+    frameLayout->setSpacing(4);
+    frameLayout->addWidget(m_frameButton);
+    m_framePill->hide();
+
     m_player      = new QMediaPlayer(this);
     m_audioOutput = new QAudioOutput(this);
     m_player->setAudioOutput(m_audioOutput);
@@ -155,6 +174,17 @@ void ImageRenderWidget::SetPixmap(const QPixmap& image)
     retranslateControls();
     m_panoPill->hide();
     m_depthPill->hide();
+    m_framePill->hide();
+    update();
+}
+
+void ImageRenderWidget::SetStillImage(const QPixmap& image)
+{
+    if (image.isNull())
+    {
+        return;
+    }
+    m_stillImage.reset(new QPixmap(image));
     update();
 }
 
@@ -304,6 +334,10 @@ void ImageRenderWidget::retranslateControls()
     m_motionLabel->setText(tr("Motion"));
     m_panoLabel->setText(tr("Panorama"));
     m_depthLabel->setText(tr("Depth"));
+    // Names the frame the click will move to, so it reads as an action.
+    const int next = m_frameTotal > 1 ? (m_frameCurrent % m_frameTotal) + 1 : 1;
+    m_frameButton->setText(tr("Switch to %1/%2").arg(next).arg(m_frameTotal));
+    m_frameButton->setToolTip(tr("Show the next source frame"));
     positionPlayButton();   // a translated label changes the pill's width
 }
 
@@ -325,15 +359,34 @@ void ImageRenderWidget::positionPlayButton()
     {
         return;
     }
-    int x = img.left() + 12;
+    int x   = img.left() + 12;
+    int top = 0;
     for (QFrame* pill : { m_motionPill, m_panoPill, m_depthPill })
     {
         pill->adjustSize();
         pill->move(x, img.top() + 12);
-        if (pill->isVisible())
+        if (!pill->isHidden())
         {
-            x += pill->width() + 8;
+            x   = x + pill->width() + 8;
+            top = std::max(top, pill->height());
         }
+    }
+
+    // The switcher gets its own row so it stays put as the others come and go.
+    m_framePill->adjustSize();
+    m_framePill->move(img.left() + 12, img.top() + 12 + (top ? top + 8 : 0));
+}
+
+void ImageRenderWidget::SetFrameSwitch(int current, int total)
+{
+    m_frameCurrent = current;
+    m_frameTotal   = total;
+    m_framePill->setVisible(total > 1);
+    retranslateControls();
+    positionPlayButton();
+    if (total > 1)
+    {
+        m_framePill->raise();
     }
 }
 

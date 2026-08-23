@@ -13,14 +13,6 @@
 #include <algorithm>   // std::ranges::equal
 #include <cmath>
 #include <cstring>
-#include <QTransform>
-
-// flipped() exists only from Qt 6.9; the project still targets 6.5.
-#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
-#define MPV_FLIP(img, h, v) ((img).flipped((h ? Qt::Horizontal : Qt::Orientations()) | (v ? Qt::Vertical : Qt::Orientations())))
-#else
-#define MPV_FLIP(img, h, v) ((img).mirrored(h, v))
-#endif
 
 JpegManager::JpegManager(const QString& imgPath)
     : m_imagePath(imgPath)
@@ -146,35 +138,6 @@ namespace
         return 0;
     }
 
-    QImage applyExifOrientation(const QImage& img, uint32_t orientation)
-    {
-        QTransform t;
-        switch (orientation)
-        {
-        case 2:
-            return MPV_FLIP(img, true, false);
-        case 3:
-            t.rotate(180);
-            break;
-        case 4:
-            return MPV_FLIP(img, false, true);
-        case 5:
-            t.rotate(90);
-            return MPV_FLIP(img, true, false).transformed(t);
-        case 6:
-            t.rotate(90);
-            break;
-        case 7:
-            t.rotate(270);
-            return MPV_FLIP(img, true, false).transformed(t);
-        case 8:
-            t.rotate(270);
-            break;
-        default:
-            return img;   // 1, or absent/unknown
-        }
-        return img.transformed(t);
-    }
 }   // namespace
 
 void JpegManager::manageJpeg()
@@ -195,7 +158,8 @@ void JpegManager::manageJpeg()
                                                                      { return a == static_cast<uint8_t>(b); });
     };
 
-    m_imageEXIF = TinyEXIF::EXIFInfo(data.data(), length);
+    m_imageEXIF        = TinyEXIF::EXIFInfo(data.data(), length);
+    m_stillOrientation = m_imageEXIF.Orientation ? m_imageEXIF.Orientation : 1;
     if (m_imageEXIF.Fields)
     {
         qDebug() << "Image Description " << m_imageEXIF.ImageDescription.c_str() << "\n"
@@ -261,6 +225,14 @@ void JpegManager::manageJpeg()
             if (name == "DualShot_Extra_Info" || name == "FocusShot_Meta_Info" || name == "SingleShot_Meta_Info")
             {
                 meta = &b;
+                continue;
+            }
+
+            // DualShot/FocusShot/SingleShot keep their source frames as whole JPEGs.
+            if (Sef::isJpeg(data.data(), data.size(), b))
+            {
+                m_altFrames.push_back(
+                    QByteArray(reinterpret_cast<const char*>(data.data() + b.offset), int(b.length)));
                 continue;
             }
 
@@ -337,7 +309,7 @@ void JpegManager::manageJpeg()
                 {
                     m_depthMap.invertPixels();   // stored as distance
                 }
-                m_depthMap = applyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
+                m_depthMap = ApplyExifOrientation(m_depthMap, m_imageEXIF.Orientation);
                 qDebug() << "Samsung SEF depth map:" << m_depthMap.size()
                          << (depthIsSingleShot  ? "(SingleShot)"
                              : depthIsFocusShot ? "(FocusShot)"

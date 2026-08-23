@@ -173,6 +173,7 @@ void MainWindow::setupBrowser()
     connect(ui->photoVidget, &ImageRenderWidget::backRequested, this, &MainWindow::showBrowseMode);
     connect(ui->photoVidget, &ImageRenderWidget::panoramaRequested, this, &MainWindow::showPanorama);
     connect(ui->photoVidget, &ImageRenderWidget::depthRequested, this, &MainWindow::showDepth);
+    connect(ui->photoVidget, &ImageRenderWidget::frameSwitchRequested, this, &MainWindow::switchSourceFrame);
 
     // Toolbar +/- : zoom whatever the central stack is currently showing.
     connect(m_browser, &FolderBrowserPanel::zoomRequested, this, [this](int steps)
@@ -564,6 +565,44 @@ void MainWindow::showDepth()
 // --------------------------------------------------------------------------
 // Viewing
 // --------------------------------------------------------------------------
+void MainWindow::switchSourceFrame()
+{
+    if (!m_imageManager)
+    {
+        return;
+    }
+
+    const int total = m_imageManager->AlternateFrameCount() + 1;
+    if (total < 2)
+    {
+        return;
+    }
+
+    m_frameIndex = (m_frameIndex + 1) % total;
+
+    QImage img = m_baseFrame;
+    if (m_frameIndex > 0)
+    {
+        // The frames are stored in sensor orientation. Rotating the file rewrites
+        // only the still's EXIF, so the still's tag is what they must follow.
+        QByteArray bytes = m_imageManager->GetAlternateFrame(m_frameIndex - 1);
+        QBuffer    buf(&bytes);
+        buf.open(QIODevice::ReadOnly);
+        QImageReader reader(&buf, "JPG");
+        reader.setAutoTransform(false);   // the still's orientation wins, see below
+        const QImage alt =
+            ImageWithVideoBase::ApplyExifOrientation(reader.read(), m_imageManager->StillOrientation());
+        if (!alt.isNull())
+        {
+            img = alt;
+        }
+    }
+
+    ui->photoVidget->SetStillImage(QPixmap::fromImage(img));
+    ui->photoVidget->SetFrameSwitch(m_frameIndex + 1, total);
+    repaint();
+}
+
 void MainWindow::SetImage(const QString& imgPath)
 {
     m_currentPath = imgPath;
@@ -575,8 +614,11 @@ void MainWindow::SetImage(const QString& imgPath)
     ui->photoVidget->SetPlayButtonVisible(false);
     ui->photoVidget->SetPanoramaButtonVisible(false);
     ui->photoVidget->SetDepthButtonVisible(false);
+    ui->photoVidget->SetFrameSwitch(1, 1);
+    m_frameIndex  = 0;
     QImage qimg   = JpegRepair::read(imgPath, true);
     m_currentPath = imgPath;
+    m_baseFrame   = qimg;
 
     ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
     const QString lower = imgPath.toLower();   // extensions may be upper-case (.HEIC, .JPG)
@@ -614,6 +656,8 @@ void MainWindow::SetImage(const QString& imgPath)
     ui->photoVidget->SetPanoramaButtonVisible(detectPanorama(imgPath));
     // Live Focus shots open flat too, with a 3D button to enter the parallax view.
     ui->photoVidget->SetDepthButtonVisible(m_imageManager->HasDepthMap());
+    // DualShot/FocusShot keep the frames they merged; offer them as 1/n.
+    ui->photoVidget->SetFrameSwitch(1, m_imageManager->AlternateFrameCount() + 1);
 
     // Keep the side panels in sync with whatever image is on screen -- this also
     // covers paths that bypass grid selection (drag & drop, Open File, stepImage).

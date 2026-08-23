@@ -89,6 +89,11 @@ namespace Sef
         return block.length >= 8 && magicAt(data, size, block.offset + 4, "ftyp");
     }
 
+    bool isJpeg(const uint8_t* data, size_t size, const Block& block)
+    {
+        return block.length >= 4 && size - block.offset >= 2 && data[block.offset] == 0xFF && data[block.offset + 1] == 0xD8;
+    }
+
     std::vector<DofsField> parseDofs(const uint8_t* data, size_t size, const Block& block)
     {
         std::vector<DofsField> fields;

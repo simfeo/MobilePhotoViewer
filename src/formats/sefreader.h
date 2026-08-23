@@ -31,6 +31,10 @@ namespace Sef
     // True if the block payload begins with an ISO-BMFF box header, i.e. a clip.
     bool isIsoBmff(const uint8_t* data, size_t size, const Block& block);
 
+    // True if the block payload is itself a JPEG, i.e. one of the source frames
+    // DualShot/FocusShot/SingleShot keep beside the still.
+    bool isJpeg(const uint8_t* data, size_t size, const Block& block);
+
     // One named value out of a DOFS record.
     struct DofsField
     {
