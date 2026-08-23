@@ -426,12 +426,16 @@ bool MainWindow::detectPanorama(const QString& path)
 
     m_isPano          = true;
     m_panoCylindrical = !equirect && (gpanoCyl || specialPano || samsungPano);
-    m_panoFullW       = static_cast<int>(exif.GPano.FullPanoWidthPixels);
-    m_panoFullH       = static_cast<int>(exif.GPano.FullPanoHeightPixels);
-    m_panoCropW       = static_cast<int>(exif.GPano.CroppedAreaImageWidthPixels);
-    m_panoCropH       = static_cast<int>(exif.GPano.CroppedAreaImageHeightPixels);
-    m_panoCropL       = static_cast<int>(exif.GPano.CroppedAreaLeftPixels);
-    m_panoCropT       = static_cast<int>(exif.GPano.CroppedAreaTopPixels);
+    // TinyEXIF 1.1.0 reports an absent GPano field as UINT32_MAX rather than 0,
+    // which would cast to -1 here; the has*() accessors say what is really set.
+    auto panoInt = [](bool present, uint32_t value)
+    { return present ? static_cast<int>(value) : 0; };
+    m_panoFullW = panoInt(exif.GPano.hasFullPanoWidthPixels(), exif.GPano.FullPanoWidthPixels);
+    m_panoFullH = panoInt(exif.GPano.hasFullPanoHeightPixels(), exif.GPano.FullPanoHeightPixels);
+    m_panoCropW = panoInt(exif.GPano.hasCroppedAreaImageWidthPixels(), exif.GPano.CroppedAreaImageWidthPixels);
+    m_panoCropH = panoInt(exif.GPano.hasCroppedAreaImageHeightPixels(), exif.GPano.CroppedAreaImageHeightPixels);
+    m_panoCropL = panoInt(exif.GPano.hasCroppedAreaLeftPixels(), exif.GPano.CroppedAreaLeftPixels);
+    m_panoCropT = panoInt(exif.GPano.hasCroppedAreaTopPixels(), exif.GPano.CroppedAreaTopPixels);
     return true;
 }
 

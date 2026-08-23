@@ -166,17 +166,28 @@ void JpegManager::manageJpeg()
                  << "Image Resolution " << m_imageEXIF.ImageWidth << "x" << m_imageEXIF.ImageHeight << " pixels\n"
                  << "Camera Model " << m_imageEXIF.Make.c_str() << " - " << m_imageEXIF.Model.c_str() << "\n"
                  << "Focal Length " << m_imageEXIF.FocalLength << " mm";
-        // The video length (MicroVideoOffset, measured from the end of the file)
-        // must fit inside the file. Some files carry the MotionPhoto metadata but
-        // no actual clip (stripped) -- guarding here avoids a size_t underflow and
-        // an out-of-bounds read.
-        const uint64_t vlen = m_imageEXIF.MicroVideo.MicroVideoOffset;
-        if (m_imageEXIF.MicroVideo.HasMicroVideo && vlen > 8 && vlen <= data.size())
+        // Two spellings of the same idea: legacy GCamera:MicroVideo states an offset
+        // back from the end of the file, the newer GCamera:MotionPhoto container
+        // states the trailing item's length. Both put the clip at size - value.
+        // The value must fit inside the file: some files keep the metadata but not
+        // the clip (stripped), and that would underflow into an out-of-bounds read.
+        uint64_t vlen = 0;
+        if (m_imageEXIF.MicroVideo.HasMotionPhoto)
+        {
+            vlen = m_imageEXIF.MicroVideo.MotionPhotoLength;
+        }
+        else if (m_imageEXIF.MicroVideo.HasMicroVideo)
+        {
+            vlen = m_imageEXIF.MicroVideo.MicroVideoOffset;
+        }
+
+        if (vlen > 8 && vlen <= data.size())
         {
             const size_t offset = data.size() - static_cast<size_t>(vlen);
             if (magicAt(offset + 4, "ftyp"))   // real ISO-BMFF clip
             {
-                qDebug() << "microvideo offset " << m_imageEXIF.MicroVideo.MicroVideoOffset;
+                qDebug() << "GCamera clip at" << offset << "length" << vlen
+                         << QString::fromStdString(m_imageEXIF.MicroVideo.MotionPhotoMime);
                 m_memoryVideo.reset(new QBuffer());
                 m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + offset),
                                        static_cast<int>(data.size() - offset));
