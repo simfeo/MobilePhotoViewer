@@ -134,21 +134,52 @@ jobs:
             -s -k "$KEYCHAIN_PWD" build.keychain
           rm cert.p12
 
-      - name: Codesign (hardened runtime)
+      - name: Codesign (hardened runtime, inside-out)
         env:
           SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: |
           APP="build/MobilePhotoViewer.app"
-          codesign --force --deep --options runtime --timestamp \
+          # --deep is deprecated by Apple and applies the app entitlements to
+          # nested code; sign the nested Mach-O first, then the bundle itself.
+          find "$APP/Contents/Frameworks" "$APP/Contents/PlugIns" \
+               -type f \( -name "*.dylib" -o -name "*.so" \) -print0 2>/dev/null \
+            | xargs -0 -r codesign --force --options runtime --timestamp \
+                --sign "$SIGN_IDENTITY"
+          for FW in "$APP"/Contents/Frameworks/*.framework; do
+            [ -d "$FW" ] || continue
+            codesign --force --options runtime --timestamp \
+              --sign "$SIGN_IDENTITY" "$FW"
+          done
+          codesign --force --options runtime --timestamp \
             --entitlements installer/macos/entitlements.plist \
             --sign "$SIGN_IDENTITY" "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Notarize & staple the .app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          # A .dmg-only ticket is lost once the app is dragged to /Applications,
+          # leaving it quarantined with no ticket to validate offline.
+          APP="build/MobilePhotoViewer.app"
+          ditto -c -k --keepParent "$APP" notarize-app.zip
+          xcrun notarytool submit notarize-app.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          rm notarize-app.zip
 
       - name: Create DMG
         run: |
           DMG="MobilePhotoViewer-${{ steps.ver.outputs.version }}-macos.dmg"
           mkdir -p dmg_staging
-          cp -R build/MobilePhotoViewer.app dmg_staging/
+          # ditto, not cp -R: preserves the stapled ticket and xattrs verbatim.
+          ditto build/MobilePhotoViewer.app dmg_staging/MobilePhotoViewer.app
           ln -s /Applications dmg_staging/Applications
           hdiutil create -volname "MobilePhotoViewer" -srcfolder dmg_staging \
             -ov -format ULFO "$DMG"
@@ -159,7 +190,7 @@ jobs:
           SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: codesign --force --sign "$SIGN_IDENTITY" --timestamp "$DMG"
 
-      - name: Notarize & staple
+      - name: Notarize & staple the .dmg
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -171,6 +202,7 @@ jobs:
             --password "$APPLE_APP_PASSWORD" \
             --wait
           xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -225,10 +257,26 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: false
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          # An empty body is fine: the auto-generated commit list still publishes.
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            found && /^## \[/        { exit }
+            found                    { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "::warning::No CHANGELOG.md section found for $VERSION"
+          fi
+          cat RELEASE_NOTES.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -237,4 +285,5 @@ jobs:
             artifacts/windows-installer/*.exe
             artifacts/macos-dmg/*.dmg
             artifacts/linux-deb/*.deb
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
