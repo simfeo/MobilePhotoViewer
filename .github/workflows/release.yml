@@ -139,6 +139,9 @@ jobs:
           SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: |
           APP="build/MobilePhotoViewer.app"
+          if otool -l "$APP"/Contents/Frameworks/*.dylib | grep -A2 LC_RPATH | grep -q /Users/runner; then
+            echo "::error::build-tree rpath leaked into the bundle"; exit 1
+          fi
           # --deep is deprecated by Apple and applies the app entitlements to
           # nested code; sign the nested Mach-O first, then the bundle itself.
           find "$APP/Contents/Frameworks" "$APP/Contents/PlugIns" \

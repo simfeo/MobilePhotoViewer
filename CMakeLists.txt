@@ -114,6 +114,12 @@ set(BUILD_TESTING           OFF CACHE BOOL "" FORCE)
 # suppress that (it also needs graphviz 'dot' and just produces docs we don't want).
 set(CMAKE_DISABLE_FIND_PACKAGE_Doxygen ON)
 add_subdirectory(third_party/libheif)
+if(APPLE)
+    # Keep the build-tree rpath out of libheif; libde265 sits beside it in the bundle.
+    set_target_properties(heif PROPERTIES
+        BUILD_WITH_INSTALL_RPATH ON
+        INSTALL_RPATH "@loader_path")
+endif()
 
 # --------------------------------------------------------------------------
 # Application
