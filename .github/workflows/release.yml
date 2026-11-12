@@ -86,7 +86,7 @@ jobs:
 
   # --------------------------------------------------------------------------
   macos:
-    runs-on: macos-14   # Apple Silicon (arm64)
+    runs-on: macos-15   # Apple Silicon (arm64)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -112,6 +112,7 @@ jobs:
         run: >
           cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
           -DAPP_VERSION=${{ steps.ver.outputs.version }}
 
       - name: Build (runs macdeployqt via POST_BUILD)
