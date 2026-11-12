@@ -88,8 +88,8 @@ if(APPLE)
     option(MPV_FFMPEG_HEVC "Decode HEIC with Qt's bundled FFmpeg instead of libde265" ON)
 endif()
 if(MPV_FFMPEG_HEVC)
-    set(MPV_FFMPEG_VERSION 7.1.1)   # Qt 6.8+ ships libavcodec 61 (FFmpeg 7.1)
-    set(MPV_FFMPEG_SHA256 733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1)
+    set(MPV_FFMPEG_VERSION 9.0.1)   # Qt 6.12 ships libavcodec 63.1.101 (FFmpeg 9.0.1)
+    set(MPV_FFMPEG_SHA256 cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635)
     set(MPV_FFMPEG_ROOT "${CMAKE_BINARY_DIR}/_deps/ffmpeg-${MPV_FFMPEG_VERSION}")
     if(NOT EXISTS "${MPV_FFMPEG_ROOT}/libavcodec/avcodec.h")
         set(_tarball "${CMAKE_BINARY_DIR}/_deps/ffmpeg-${MPV_FFMPEG_VERSION}.tar.xz")
@@ -104,6 +104,19 @@ if(MPV_FFMPEG_HEVC)
 
     find_library(MPV_QT_AVCODEC avcodec PATHS "${QT6_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH REQUIRED)
     find_library(MPV_QT_AVUTIL  avutil  PATHS "${QT6_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH REQUIRED)
+
+    # A header/library major mismatch compiles cleanly and then misbehaves at run time
+    # (FFmpeg 9 renumbered the codec IDs: HEVC went from 173 to 172), so refuse it here.
+    file(STRINGS "${MPV_FFMPEG_ROOT}/libavcodec/version_major.h" _avcodec_major_line
+         REGEX "#define LIBAVCODEC_VERSION_MAJOR")
+    string(REGEX MATCH "[0-9]+" _avcodec_header_major "${_avcodec_major_line}")
+    get_filename_component(_avcodec_real "${MPV_QT_AVCODEC}" REALPATH)
+    string(REGEX MATCH "libavcodec\\.([0-9]+)" _avcodec_lib_match "${_avcodec_real}")
+    if(NOT CMAKE_MATCH_1 STREQUAL _avcodec_header_major)
+        message(FATAL_ERROR "Qt's libavcodec (${_avcodec_real}) is major ${CMAKE_MATCH_1}, but the "
+                            "FFmpeg ${MPV_FFMPEG_VERSION} headers are major ${_avcodec_header_major}. "
+                            "Set MPV_FFMPEG_VERSION to the FFmpeg release this Qt bundles.")
+    endif()
     set(FFMPEG_avcodec_INCLUDE_DIR "${MPV_FFMPEG_ROOT}" CACHE PATH "" FORCE)
     set(FFMPEG_avutil_INCLUDE_DIR  "${MPV_FFMPEG_ROOT}" CACHE PATH "" FORCE)
     set(FFMPEG_avcodec_LIBRARY     "${MPV_QT_AVCODEC}"  CACHE FILEPATH "" FORCE)
@@ -150,12 +163,6 @@ set(BUILD_TESTING           OFF CACHE BOOL "" FORCE)
 # suppress that (it also needs graphviz 'dot' and just produces docs we don't want).
 set(CMAKE_DISABLE_FIND_PACKAGE_Doxygen ON)
 add_subdirectory(third_party/libheif)
-if(APPLE)
-    # Keep the build-tree rpath out of libheif; libde265 sits beside it in the bundle.
-    set_target_properties(heif PROPERTIES
-        BUILD_WITH_INSTALL_RPATH ON
-        INSTALL_RPATH "@loader_path")
-endif()
 
 # --------------------------------------------------------------------------
 # Application
@@ -300,6 +307,8 @@ elseif(APPLE)
             COMMAND "${MACDEPLOYQT_EXECUTABLE}"
                     "$<TARGET_BUNDLE_DIR:MobilePhotoViewer>"
                     -always-overwrite
+            COMMAND "${CMAKE_COMMAND}" "-DBUNDLE=$<TARGET_BUNDLE_DIR:MobilePhotoViewer>"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/StripAbsoluteRpaths.cmake"
             VERBATIM
         )
     else()

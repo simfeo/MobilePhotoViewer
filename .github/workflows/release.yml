@@ -16,7 +16,7 @@ on:
         default: "0.0.0-test"
 
 env:
-  QT_VERSION: "6.8.1"
+  QT_VERSION: "6.12.0"
 
 jobs:
   # --------------------------------------------------------------------------
@@ -112,7 +112,7 @@ jobs:
         run: >
           cmake -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4
           -DAPP_VERSION=${{ steps.ver.outputs.version }}
 
       - name: Build (runs macdeployqt via POST_BUILD)
