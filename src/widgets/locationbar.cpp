@@ -66,14 +66,39 @@ void LocationBar::rebuildCrumbs()
         delete item;
     }
 
-    // Split "D:/a/b" into cumulative targets: "D:/", "D:/a", "D:/a/b".
-    const QString     clean = QDir::fromNativeSeparators(QDir::cleanPath(m_path));
-    const QStringList parts = clean.split('/', Qt::SkipEmptyParts);
+    // Split "D:/a/b" into cumulative targets: "D:/", "D:/a", "D:/a/b". split() drops the
+    // leading "/" of a Unix path (or "//" of a UNC share), so it is carried in every target;
+    // a Unix path also gets its own "/" crumb, the counterpart of the drive crumb.
+    const QString     clean  = QDir::fromNativeSeparators(QDir::cleanPath(m_path));
+    const QStringList parts  = clean.split('/', Qt::SkipEmptyParts);
+    const QString     prefix = clean.startsWith("//") ? QStringLiteral("//")
+                               : clean.startsWith('/') ? QStringLiteral("/")
+                                                       : QString();
 
-    QString accum;
+    auto addCrumb = [this](const QString& text, const QString& target)
+    {
+        if (m_crumbLayout->count() > 0)
+        {
+            m_crumbLayout->addWidget(new QLabel(QString(QChar(0x203A))));   // "›"
+        }
+        QToolButton* crumb = new QToolButton;
+        crumb->setText(text);
+        crumb->setAutoRaise(true);
+        crumb->setCursor(Qt::PointingHandCursor);
+        connect(crumb, &QToolButton::clicked, this, [this, target]
+                { emit navigate(target); });
+        m_crumbLayout->addWidget(crumb);
+    };
+
+    if (prefix == "/")
+    {
+        addCrumb(prefix, prefix);
+    }
+
+    QString accum = prefix;
     for (int i = 0; i < parts.size(); ++i)
     {
-        if (i == 0)
+        if (i == 0 && prefix.isEmpty())
         {
             accum = parts.at(0) + '/';   // drive root, e.g. "D:/"
         }
@@ -85,20 +110,7 @@ void LocationBar::rebuildCrumbs()
             }
             accum += parts.at(i);
         }
-        const QString target = accum;
-
-        if (i > 0)
-        {
-            m_crumbLayout->addWidget(new QLabel(QString(QChar(0x203A))));   // "›"
-        }
-
-        QToolButton* crumb = new QToolButton;
-        crumb->setText(parts.at(i));
-        crumb->setAutoRaise(true);
-        crumb->setCursor(Qt::PointingHandCursor);
-        connect(crumb, &QToolButton::clicked, this, [this, target]
-                { emit navigate(target); });
-        m_crumbLayout->addWidget(crumb);
+        addCrumb(parts.at(i), accum);
     }
 
     m_crumbLayout->addStretch(1);   // clickable empty area -> edit mode
