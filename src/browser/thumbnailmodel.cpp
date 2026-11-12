@@ -11,7 +11,7 @@
 #include <QUrl>
 #include <QFile>
 
-#include "formats/heifmanager.h"
+#include "formats/heifpreview.h"
 
 ThumbnailModel::ThumbnailModel(QObject* parent)
     : QAbstractListModel(parent), m_pool(new QThreadPool(this))
@@ -205,16 +205,9 @@ void ThumbnailModel::requestThumbnail(const QString& path) const
         const QString lower = path.toLower();
         if (lower.endsWith("heic") || lower.endsWith("heif"))
         {
-            // QImageReader can't decode HEIF here (no Qt plugin) -- use our own
-            // libheif-based decoder, then scale down to the thumbnail box.
-            HeifManager m(path);
-            if (m.getWidth() && m.getHeight())
-            {
-                const QImage full(reinterpret_cast<const uchar*>(m.getDecodedImage().get()),
-                                  static_cast<int>(m.getWidth()), static_cast<int>(m.getHeight()),
-                                  QImage::Format_RGBA8888);
-                img = full.scaled(box, box, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            }
+            // QImageReader can't decode HEIF here (no Qt plugin); the embedded
+            // thumbnail spares a full decode of every photo in the folder.
+            img = HeifPreview::thumbnail(path, box);
         }
         else
         {

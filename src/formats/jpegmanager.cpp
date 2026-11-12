@@ -6,7 +6,6 @@
 #include <QImage>
 
 #include <iostream>
-#include <fstream>
 #include <string>
 #include <string_view>
 #include <span>
@@ -14,10 +13,9 @@
 #include <cmath>
 #include <cstring>
 
-JpegManager::JpegManager(const QString& imgPath)
-    : m_imagePath(imgPath)
+JpegManager::JpegManager(const QByteArray& fileData)
 {
-    manageJpeg();
+    manageJpeg(fileData);
 }
 
 namespace
@@ -140,15 +138,9 @@ namespace
 
 }   // namespace
 
-void JpegManager::manageJpeg()
+void JpegManager::manageJpeg(const QByteArray& fileData)
 {
-    std::shared_ptr<std::ifstream> imgFile(new std::ifstream(m_imagePath.toStdString().c_str(), std::ifstream::in | std::ifstream::binary), [](std::ifstream* p)
-                                           {if (p) { p->close(), delete p; } });
-    imgFile->seekg(0, std::ios::end);
-    std::streampos length = imgFile->tellg();
-    imgFile->seekg(0, std::ios::beg);
-    std::vector<uint8_t> data(length);
-    imgFile->read((char*)data.data(), length);
+    const std::span<const uint8_t> data(reinterpret_cast<const uint8_t*>(fileData.constData()), size_t(fileData.size()));
 
     // True if the 4-byte magic tag sits at data[pos..pos+len), bounds-checked.
     auto magicAt = [&data](size_t pos, std::string_view tag)
@@ -158,7 +150,7 @@ void JpegManager::manageJpeg()
                                                                      { return a == static_cast<uint8_t>(b); });
     };
 
-    m_imageEXIF        = TinyEXIF::EXIFInfo(data.data(), length);
+    m_imageEXIF        = TinyEXIF::EXIFInfo(data.data(), unsigned(data.size()));
     m_stillOrientation = m_imageEXIF.Orientation ? m_imageEXIF.Orientation : 1;
     if (m_imageEXIF.Fields)
     {
@@ -189,7 +181,7 @@ void JpegManager::manageJpeg()
                 qDebug() << "GCamera clip at" << offset << "length" << vlen
                          << QString::fromStdString(m_imageEXIF.MicroVideo.MotionPhotoMime);
                 m_memoryVideo.reset(new QBuffer());
-                m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + offset),
+                m_memoryVideo->setData(reinterpret_cast<const char*>(data.data() + offset),
                                        static_cast<int>(data.size() - offset));
             }
         }
@@ -252,7 +244,7 @@ void JpegManager::manageJpeg()
                 qDebug() << "Samsung SEF clip:" << QString::fromStdString(b.name)
                          << "bytes [" << b.offset << ".." << (b.offset + b.length) << "]";
                 m_memoryVideo.reset(new QBuffer());
-                m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + b.offset),
+                m_memoryVideo->setData(reinterpret_cast<const char*>(data.data() + b.offset),
                                        static_cast<int>(b.length));
                 // Only MotionPhoto clips share the still framing.
                 m_videoFillsStill = name.starts_with("MotionPhoto");
@@ -351,7 +343,7 @@ void JpegManager::manageJpeg()
                 {
                     qDebug() << "Samsung SEF motion photo: mp4 bytes [" << mp4Start << ".." << mp4End << "]";
                     m_memoryVideo.reset(new QBuffer());
-                    m_memoryVideo->setData(reinterpret_cast<char*>(data.data() + mp4Start),
+                    m_memoryVideo->setData(reinterpret_cast<const char*>(data.data() + mp4Start),
                                            static_cast<int>(mp4End - mp4Start));
                 }
             }

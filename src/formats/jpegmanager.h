@@ -1,7 +1,7 @@
 #ifndef JPEGMANAGER_H
 #define JPEGMANAGER_H
 
-#include <QString>
+#include <QByteArray>
 
 #include "imagewithvideobase.h"
 #include <TinyEXIF.h>
@@ -16,12 +16,12 @@ namespace JpegUtils
 class JpegManager : public ImageWithVideoBase
 {
 public:
-    JpegManager(const QString& imgPath);
-
-    void manageJpeg();
+    // fileData is the whole file, already read by the caller; nothing here touches the disk.
+    explicit JpegManager(const QByteArray& fileData);
 
 private:
-    QString            m_imagePath;
+    void manageJpeg(const QByteArray& fileData);
+
     TinyEXIF::EXIFInfo m_imageEXIF;
 };
 

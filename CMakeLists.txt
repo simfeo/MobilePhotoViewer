@@ -79,8 +79,44 @@ include_directories(
     "${CMAKE_CURRENT_BINARY_DIR}/third_party/libde265"
 )
 
+# ---- FFmpeg HEVC decoding (macOS) -------------------------------------------
+# libde265 has no arm64 SIMD; FFmpeg's HEVC decoder does, and Qt Multimedia
+# already ships libavcodec in the bundle. Qt ships no FFmpeg headers, so the
+# matching release's headers are fetched and libheif's FFmpeg decoder is linked
+# against Qt's libraries. libde265 stays built in as the fallback.
+if(APPLE)
+    option(MPV_FFMPEG_HEVC "Decode HEIC with Qt's bundled FFmpeg instead of libde265" ON)
+endif()
+if(MPV_FFMPEG_HEVC)
+    set(MPV_FFMPEG_VERSION 7.1.1)   # Qt 6.8+ ships libavcodec 61 (FFmpeg 7.1)
+    set(MPV_FFMPEG_SHA256 733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1)
+    set(MPV_FFMPEG_ROOT "${CMAKE_BINARY_DIR}/_deps/ffmpeg-${MPV_FFMPEG_VERSION}")
+    if(NOT EXISTS "${MPV_FFMPEG_ROOT}/libavcodec/avcodec.h")
+        set(_tarball "${CMAKE_BINARY_DIR}/_deps/ffmpeg-${MPV_FFMPEG_VERSION}.tar.xz")
+        file(DOWNLOAD "https://ffmpeg.org/releases/ffmpeg-${MPV_FFMPEG_VERSION}.tar.xz" "${_tarball}"
+             EXPECTED_HASH SHA256=${MPV_FFMPEG_SHA256} TLS_VERIFY ON)
+        file(ARCHIVE_EXTRACT INPUT "${_tarball}" DESTINATION "${CMAKE_BINARY_DIR}/_deps"
+             PATTERNS "ffmpeg-${MPV_FFMPEG_VERSION}/libavcodec/*.h" "ffmpeg-${MPV_FFMPEG_VERSION}/libavutil/*.h")
+    endif()
+    # Normally written by FFmpeg's configure; included by libavutil/macros.h.
+    file(WRITE "${MPV_FFMPEG_ROOT}/libavutil/avconfig.h"
+         "#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n")
+
+    find_library(MPV_QT_AVCODEC avcodec PATHS "${QT6_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH REQUIRED)
+    find_library(MPV_QT_AVUTIL  avutil  PATHS "${QT6_INSTALL_PREFIX}/lib" NO_DEFAULT_PATH REQUIRED)
+    set(FFMPEG_avcodec_INCLUDE_DIR "${MPV_FFMPEG_ROOT}" CACHE PATH "" FORCE)
+    set(FFMPEG_avutil_INCLUDE_DIR  "${MPV_FFMPEG_ROOT}" CACHE PATH "" FORCE)
+    set(FFMPEG_avcodec_LIBRARY     "${MPV_QT_AVCODEC}"  CACHE FILEPATH "" FORCE)
+    set(FFMPEG_avutil_LIBRARY      "${MPV_QT_AVUTIL}"   CACHE FILEPATH "" FORCE)
+    set(WITH_FFMPEG_DECODER        ON  CACHE BOOL "" FORCE)
+    set(WITH_FFMPEG_DECODER_PLUGIN OFF CACHE BOOL "" FORCE)
+    # Qt registers its own FindFFMPEG.cmake, which reports results under names libheif does not
+    # read. Index 1 keeps our cmake/ (FindLIBDE265, prepended above) first and libheif's next.
+    list(INSERT CMAKE_MODULE_PATH 1 "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libheif/cmake/modules")
+endif()
+
 # ---- libheif --------------------------------------------------------------
-# Only the libde265 HEVC decoder, compiled straight into heif.dll. Everything
+# The libde265 HEVC decoder (plus FFmpeg's on macOS, see above), compiled straight into heif.dll. Everything
 # else (other codecs, plugin loading, examples, tests) is disabled to keep the
 # build self-contained and matching the previous qmake configuration.
 set(ENABLE_PLUGIN_LOADING  OFF CACHE BOOL "" FORCE)
@@ -146,6 +182,9 @@ qt_add_executable(MobilePhotoViewer WIN32 MACOSX_BUNDLE
     # Reading what phones write: containers, motion clips, depth maps. No UI.
     src/formats/jpegmanager.cpp        src/formats/jpegmanager.h
     src/formats/heifmanager.cpp        src/formats/heifmanager.h
+    src/formats/heifpreview.cpp        src/formats/heifpreview.h
+    src/formats/heifdecode.h
+    src/formats/memorystream.h
     src/formats/imagewithvideobase.cpp src/formats/imagewithvideobase.h
     src/formats/jpegrepair.cpp         src/formats/jpegrepair.h
     src/formats/heifboxes.cpp          src/formats/heifboxes.h
@@ -213,6 +252,14 @@ target_link_libraries(MobilePhotoViewer PRIVATE
     Qt6::OpenGL Qt6::OpenGLWidgets
     heif
 )
+if(MPV_FFMPEG_HEVC)
+    target_compile_definitions(MobilePhotoViewer PRIVATE MPV_FFMPEG_HEVC)
+endif()
+if(APPLE)
+    # HeifPreview reads embedded HEIC thumbnails through ImageIO.
+    target_link_libraries(MobilePhotoViewer PRIVATE
+        "-framework ImageIO" "-framework CoreGraphics" "-framework CoreFoundation")
+endif()
 
 # 2) Qt runtime (Qt6*.dll, platform/multimedia plugins, FFmpeg DLLs) via windeployqt.
 if(WIN32)
@@ -258,4 +305,9 @@ elseif(APPLE)
     else()
         message(WARNING "macdeployqt not found; Qt frameworks will not be auto-bundled.")
     endif()
+endif()
+
+option(MPV_BUILD_BENCH "Build the heif_bench image decode benchmark" OFF)
+if(MPV_BUILD_BENCH)
+    add_subdirectory(bench)
 endif()

@@ -27,6 +27,7 @@ class PanoramaWidget;
 class DepthWidget;
 class MetadataPanel;
 class FolderBrowserPanel;
+class HeifManager;
 
 class MainWindow : public QMainWindow
 {
@@ -64,10 +65,13 @@ private:
     void setupBrowser();
     void setupMenus();
     void restoreLayout();                       // capture default state, then apply any saved layout
-    bool detectPanorama(const QString& path);   // fills m_pano* if equirectangular
+    bool detectPanorama(const QString& path, const QByteArray& fileData);   // fills m_pano* if equirectangular
     void showPanorama();                        // build the sphere and switch to it
     void showDepth();                           // feed the parallax viewer and switch to it
     void showViewMode();
+    void applyImageManager();   // video, depth and source-frame controls for m_imageManager
+    void loadHeifAsync(const QByteArray& fileData);
+    void onHeifLoaded(const std::shared_ptr<HeifManager>& manager, const QImage& img, int generation);
     void switchSourceFrame();   // cycle the still through the SEF source frames
     void showBrowseMode();
     void setFullScreenView(bool on);
@@ -84,6 +88,7 @@ private:
     // Source-frame switcher: 0 is the still as shipped, 1..n the SEF frames.
     int    m_frameIndex = 0;
     QImage m_baseFrame;
+    int    m_loadGeneration = 0;   // bumped per SetImage so a late background decode is dropped
 
     // browsing mode
     QStackedWidget*     m_stack;

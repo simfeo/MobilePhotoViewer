@@ -71,7 +71,20 @@ namespace
 
 QImage JpegRepair::read(const QString& path, bool autoTransform, int box)
 {
-    QImageReader reader(path);
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        return QImage();
+    }
+    return read(file.readAll(), autoTransform, box);
+}
+
+QImage JpegRepair::read(const QByteArray& fileData, bool autoTransform, int box)
+{
+    QBuffer buffer;
+    buffer.setData(fileData);   // implicitly shared, not copied
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
     reader.setAutoTransform(autoTransform);
     applyBox(reader, box);
     QImage image = reader.read();
@@ -80,24 +93,18 @@ QImage JpegRepair::read(const QString& path, bool autoTransform, int box)
         return image;
     }
 
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        return image;
-    }
-    QByteArray   data = file.readAll();
-    const qint64 end  = scanEnd(data);
+    const qint64 end = scanEnd(fileData);
     if (end <= 0)
     {
         return image;
     }
 
-    data.truncate(int(end));
+    QByteArray data = fileData.left(end);
     data.append("\xFF\xD9", 2);   // terminate the stream libjpeg ran off the end of
 
-    QBuffer buffer(&data);
-    buffer.open(QIODevice::ReadOnly);
-    QImageReader repaired(&buffer, "jpeg");
+    QBuffer repairedBuffer(&data);
+    repairedBuffer.open(QIODevice::ReadOnly);
+    QImageReader repaired(&repairedBuffer, "jpeg");
     repaired.setAutoTransform(autoTransform);
     applyBox(repaired, box);
     return repaired.read();

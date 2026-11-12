@@ -11,7 +11,7 @@
 #include <QFileInfo>
 #include <QDateTime>
 
-#include "formats/heifmanager.h"
+#include "formats/heifpreview.h"
 #include <TinyEXIF.h>
 
 MetadataPanel::MetadataPanel(QObject* parent)
@@ -37,22 +37,14 @@ QWidget* MetadataPanel::metadataWidget() const
     return m_metadata;
 }
 
-QImage MetadataPanel::loadImage(const QString& path) const
+QImage MetadataPanel::loadImage(const QString& path, const QByteArray& fileData) const
 {
     const QString lower = path.toLower();
     if (lower.endsWith("heic") || lower.endsWith("heif"))
     {
-        HeifManager m(path);
-        if (m.getWidth() && m.getHeight())
-        {
-            QImage img(m.getDecodedImage().get(),
-                       static_cast<int>(m.getWidth()), static_cast<int>(m.getHeight()),
-                       QImage::Format_RGBA8888);
-            return img.copy();   // own the pixels; HeifManager frees its buffer
-        }
-        return QImage();
+        return HeifPreview::thumbnail(fileData, 512);
     }
-    return JpegRepair::read(path, true);
+    return JpegRepair::read(fileData, true);
 }
 
 bool MetadataPanel::event(QEvent* event)
@@ -60,14 +52,26 @@ bool MetadataPanel::event(QEvent* event)
     if (event->type() == QEvent::LanguageChange)
     {
         m_metadata->setHeaderLabels({ tr("Property"), tr("Value") });
-        setFile(m_path);   // the row labels are translated, so rebuild them
+        setFileData(m_path, m_data);   // the row labels are translated, so rebuild them
     }
     return QObject::event(event);
 }
 
 void MetadataPanel::setFile(const QString& path)
 {
+    QByteArray fileData;
+    QFile      file(path);
+    if (!path.isEmpty() && file.open(QIODevice::ReadOnly))
+    {
+        fileData = file.readAll();
+    }
+    setFileData(path, fileData);
+}
+
+void MetadataPanel::setFileData(const QString& path, const QByteArray& fileData)
+{
     m_path = path;
+    m_data = fileData;
     m_metadata->clear();
     if (path.isEmpty())
     {
@@ -76,7 +80,7 @@ void MetadataPanel::setFile(const QString& path)
     }
 
     // Preview (scaled).
-    QImage img = loadImage(path);
+    QImage img = loadImage(path, fileData);
     if (!img.isNull())
     {
         const QSize box = m_preview->size().isValid() && m_preview->width() > 20
@@ -102,16 +106,18 @@ void MetadataPanel::setFile(const QString& path)
     add(tr("Name"), fi.fileName());
     add(tr("Size"), QString::number(fi.size() / 1024) + " KB");
     add(tr("Modified"), fi.lastModified().toString(Qt::ISODate));
-    if (!img.isNull())
+    // The HEIF preview is a thumbnail, so its size is not the photo's.
+    const QString lower = path.toLower();
+    const QSize   dims  = lower.endsWith("heic") || lower.endsWith("heif") ? HeifPreview::size(fileData) : img.size();
+    if (!dims.isEmpty())
     {
-        add(tr("Dimensions"), QString("%1 x %2").arg(img.width()).arg(img.height()));
+        add(tr("Dimensions"), QString("%1 x %2").arg(dims.width()).arg(dims.height()));
     }
 
-    QFile f(path);
-    if (f.open(QIODevice::ReadOnly))
+    if (!fileData.isEmpty())
     {
-        const QByteArray   bytes = f.read(256 * 1024);   // header is enough for EXIF
-        TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(bytes.constData()), bytes.size());
+        const qsizetype    head = qMin<qsizetype>(fileData.size(), 256 * 1024);   // header is enough for EXIF
+        TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(fileData.constData()), unsigned(head));
         if (exif.Fields)
         {
             const QString make  = QString::fromStdString(exif.Make);

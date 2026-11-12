@@ -21,10 +21,6 @@ class QLabel;
 class QVideoSink;
 
 class QImage;
-namespace std
-{
-    class thread;
-}
 
 class ImageRenderWidget : public QWidget
 {

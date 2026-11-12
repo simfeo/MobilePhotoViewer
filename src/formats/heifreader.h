@@ -24,8 +24,8 @@ public:
     HeifReader();
 
     HeifHelpers::OperationResult load(const char* img_path);
-    HeifHelpers::OperationResult load(std::ifstream& fstream);
-    HeifHelpers::OperationResult readBoxParameters(std::ifstream& fstream, const std::int64_t fstream_size, std::string& boxType, std::int64_t& boxSize);
+    HeifHelpers::OperationResult load(std::istream& fstream);
+    HeifHelpers::OperationResult readBoxParameters(std::istream& fstream, const std::int64_t fstream_size, std::string& boxType, std::int64_t& boxSize);
     SefdBox                      getSefdBox();
     size_t                       getSefdOffset();
 
@@ -35,10 +35,10 @@ public:
     size_t getMpvdVideoSize() const;
 
 private:
-    HeifHelpers::OperationResult skipBox(std::ifstream& fstream);
-    HeifHelpers::OperationResult handleSefd(std::ifstream& fstream);
-    HeifHelpers::OperationResult handleMpvd(std::ifstream& fstream);
-    HeifHelpers::OperationResult readBox(std::ifstream& fstream, std::vector<uint8_t>& bitstream);
+    HeifHelpers::OperationResult skipBox(std::istream& fstream);
+    HeifHelpers::OperationResult handleSefd(std::istream& fstream);
+    HeifHelpers::OperationResult handleMpvd(std::istream& fstream);
+    HeifHelpers::OperationResult readBox(std::istream& fstream, std::vector<uint8_t>& bitstream);
 
     enum class ReaderState
     {

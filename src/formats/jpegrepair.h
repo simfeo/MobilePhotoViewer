@@ -1,6 +1,7 @@
 #ifndef JPEGREPAIR_H
 #define JPEGREPAIR_H
 
+#include <QByteArray>
 #include <QImage>
 #include <QString>
 
@@ -12,6 +13,8 @@ namespace JpegRepair
 {
     // 'box' > 0 scales the decode down to fit a box x box square (thumbnails).
     QImage read(const QString& path, bool autoTransform, int box = 0);
+    // Same, from a file the caller has already read.
+    QImage read(const QByteArray& fileData, bool autoTransform, int box = 0);
 }   // namespace JpegRepair
 
 #endif   // JPEGREPAIR_H

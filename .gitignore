@@ -280,6 +280,8 @@ qrc_*.cpp
 *.vcxproj.filters
 
 # Local scratch / test artifacts
+bench/data/
+bench/results/
 _debug.log
 _shot*.png
 hevc_image.hevc

@@ -1,6 +1,7 @@
 #ifndef METADATAPANEL_H
 #define METADATAPANEL_H
 
+#include <QByteArray>
 #include <QObject>
 #include <QString>
 
@@ -25,17 +26,22 @@ public:
 public slots:
     void setFile(const QString& path);   // empty path clears both panels
 
+public:
+    // Same, from a file the caller has already read, so it is not read twice.
+    void setFileData(const QString& path, const QByteArray& fileData);
+
 protected:
     // QEvent::LanguageChange: QWidget forwards it to every QObject child, so this
     // panel is reached even though it is not a widget itself.
     bool event(QEvent* event) override;
 
 private:
-    QImage loadImage(const QString& path) const;
+    QImage loadImage(const QString& path, const QByteArray& fileData) const;
 
     QLabel*      m_preview;
     QTreeWidget* m_metadata;
     QString      m_path;   // current file, so a language change can re-populate
+    QByteArray   m_data;   // its bytes, so that re-populating does not read it again
 };
 
 #endif   // METADATAPANEL_H

@@ -15,18 +15,22 @@ namespace JpegUtils
 class HeifManager : public ImageWithVideoBase
 {
 public:
-    HeifManager(const QString& imgPath);
-
-    void manageHeif();
+    // fileData is the whole file, already read by the caller; nothing here touches the disk.
+    explicit HeifManager(const QByteArray& fileData);
 
     size_t                   getWidth() const override;
     size_t                   getHeight() const override;
     std::shared_ptr<uint8_t> getDecodedImage() override;
 
+    // The decoded pixels without a copy; the image keeps them alive on its own.
+    QImage image() const;
+
 private:
+    void manageHeif(const QByteArray& fileData);
+
     uint32_t                 m_width;
     uint32_t                 m_height;
-    QString                  m_imagePath;
+    uint32_t                 m_stride;
     std::shared_ptr<uint8_t> m_decodedImage;
     TinyEXIF::EXIFInfo       m_imageEXIF;
 };

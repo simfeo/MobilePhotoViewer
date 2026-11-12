@@ -29,11 +29,14 @@
 #include <QKeySequence>
 #include <QSignalBlocker>
 #include <QApplication>
+#include <QPointer>
+#include <QThreadPool>
 
 #include <functional>
 
 #include "formats/jpegmanager.h"
 #include "formats/heifmanager.h"
+#include "formats/heifpreview.h"
 #include <TinyEXIF.h>
 
 #include "widgets/panoramawidget.h"
@@ -392,7 +395,7 @@ void MainWindow::onOpenFolder()
 // --------------------------------------------------------------------------
 // Detect an equirectangular panorama and remember its geometry (used later by
 // showPanorama() when the user clicks the 360 button).
-bool MainWindow::detectPanorama(const QString& path)
+bool MainWindow::detectPanorama(const QString& path, const QByteArray& fileData)
 {
     m_isPano            = false;
     const QString lower = path.toLower();
@@ -401,13 +404,7 @@ bool MainWindow::detectPanorama(const QString& path)
         return false;
     }
 
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly))
-    {
-        return false;
-    }
-    const QByteArray head = f.read(512 * 1024);   // EXIF/XMP sit near the start of the file
-    f.close();
+    const QByteArray head = fileData.left(512 * 1024);   // EXIF/XMP sit near the start of the file
 
     TinyEXIF::EXIFInfo exif(reinterpret_cast<const uint8_t*>(head.constData()), head.size());
     const bool         equirect = exif.GPano.isEquirectangular();
@@ -446,7 +443,7 @@ void MainWindow::showPanorama()
         return;
     }
 
-    QImage img = JpegRepair::read(m_currentPath, true);
+    QImage img = m_baseFrame;   // SetImage already decoded this file
     if (img.isNull())
     {
         return;
@@ -548,7 +545,7 @@ void MainWindow::showDepth()
         return;
     }
 
-    QImage img = JpegRepair::read(m_currentPath, true);
+    QImage img = m_baseFrame;   // SetImage already decoded this file
     if (img.isNull())
     {
         return;
@@ -619,31 +616,56 @@ void MainWindow::SetImage(const QString& imgPath)
     ui->photoVidget->SetPanoramaButtonVisible(false);
     ui->photoVidget->SetDepthButtonVisible(false);
     ui->photoVidget->SetFrameSwitch(1, 1);
-    m_frameIndex  = 0;
-    QImage qimg   = JpegRepair::read(imgPath, true);
-    m_currentPath = imgPath;
-    m_baseFrame   = qimg;
+    m_frameIndex = 0;
+    ++m_loadGeneration;
 
-    ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
-    const QString lower = imgPath.toLower();   // extensions may be upper-case (.HEIC, .JPG)
-    if (lower.endsWith("jpeg") || lower.endsWith("jpg"))
+    // The one read of this file: the decoder, the manager and the side panel all share it.
+    QByteArray fileData;
+    QFile      file(imgPath);
+    if (file.open(QIODevice::ReadOnly))
     {
-        m_imageManager.reset(new JpegManager(imgPath));
+        fileData = file.readAll();
     }
-    else if (lower.endsWith("heic") || lower.endsWith("heif"))
-    {
-        m_imageManager.reset(new HeifManager(imgPath));
 
-        if (m_imageManager->getWidth() && m_imageManager->getHeight())
-        {
-            QImage qimg = QImage(m_imageManager->getDecodedImage().get(), static_cast<int>(m_imageManager->getWidth()), static_cast<int>(m_imageManager->getHeight()), QImage::Format_RGBA8888);
-            ui->photoVidget->SetPixmap(QPixmap::fromImage(qimg));
-        }
+    const QString lower = imgPath.toLower();   // extensions may be upper-case (.HEIC, .JPG)
+    if (lower.endsWith("heic") || lower.endsWith("heif"))
+    {
+        // A 24 MP HEIC takes a noticeable fraction of a second to decode: show the
+        // embedded thumbnail now and swap in the full photo when the worker is done.
+        m_imageManager.reset(new ImageWithVideoBase());
+        m_baseFrame = HeifPreview::thumbnail(fileData, 1024, false);
+        ui->photoVidget->SetPixmap(QPixmap::fromImage(m_baseFrame));
+        loadHeifAsync(fileData);
     }
     else
     {
-        m_imageManager.reset(new ImageWithVideoBase());
+        m_baseFrame = JpegRepair::read(fileData, true);
+        ui->photoVidget->SetPixmap(QPixmap::fromImage(m_baseFrame));
+        if (lower.endsWith("jpeg") || lower.endsWith("jpg"))
+        {
+            m_imageManager.reset(new JpegManager(fileData));
+        }
+        else
+        {
+            m_imageManager.reset(new ImageWithVideoBase());
+        }
+        applyImageManager();
     }
+
+    // Equirectangular panoramas open flat, with a 360 button to enter the sphere.
+    ui->photoVidget->SetPanoramaButtonVisible(detectPanorama(imgPath, fileData));
+
+    // Keep the side panels in sync with whatever image is on screen -- this also
+    // covers paths that bypass grid selection (drag & drop, Open File, stepImage).
+    m_info->setFileData(imgPath, fileData);
+
+    setWindowTitle(imgPath);
+    showViewMode();
+    repaint();
+}
+
+void MainWindow::applyImageManager()
+{
     const bool hasVideo = m_imageManager->HasMicrovideo();
     if (hasVideo)
     {
@@ -656,20 +678,47 @@ void MainWindow::SetImage(const QString& imgPath)
         m_saveVideoAction->setEnabled(hasVideo);
     }
 
-    // Equirectangular panoramas open flat, with a 360 button to enter the sphere.
-    ui->photoVidget->SetPanoramaButtonVisible(detectPanorama(imgPath));
     // Live Focus shots open flat too, with a 3D button to enter the parallax view.
     ui->photoVidget->SetDepthButtonVisible(m_imageManager->HasDepthMap());
     // DualShot/FocusShot keep the frames they merged; offer them as 1/n.
     ui->photoVidget->SetFrameSwitch(1, m_imageManager->AlternateFrameCount() + 1);
+}
 
-    // Keep the side panels in sync with whatever image is on screen -- this also
-    // covers paths that bypass grid selection (drag & drop, Open File, stepImage).
-    m_info->setFile(imgPath);
+void MainWindow::loadHeifAsync(const QByteArray& fileData)
+{
+    const int            generation = m_loadGeneration;
+    QPointer<MainWindow> self(this);
+    QThreadPool::globalInstance()->start([self, fileData, generation]()
+                                         {
+        auto manager = std::make_shared<HeifManager>(fileData);
+        // The motion-photo buffer is created on this worker; the UI thread plays it.
+        if (std::shared_ptr<QBuffer> video = manager->getVideoMemory())
+        {
+            video->moveToThread(QCoreApplication::instance()->thread());
+        }
+        const QImage img = manager->image();
+        // Posted via the application object, so a window closed meanwhile is just skipped.
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, manager, img, generation]()
+                                  {
+            if (self)
+            {
+                self->onHeifLoaded(manager, img, generation);
+            } }, Qt::QueuedConnection); });
+}
 
-    setWindowTitle(imgPath);
-    showViewMode();
-    repaint();
+void MainWindow::onHeifLoaded(const std::shared_ptr<HeifManager>& manager, const QImage& img, int generation)
+{
+    if (generation != m_loadGeneration)
+    {
+        return;   // the user has already moved on to another photo
+    }
+    m_imageManager = manager;
+    if (!img.isNull())
+    {
+        m_baseFrame = img;
+        ui->photoVidget->SetPixmap(QPixmap::fromImage(img));
+    }
+    applyImageManager();
 }
 
 void MainWindow::onSaveVideo()
