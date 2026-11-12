@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
         }
         else
         {
-            w.SetImage(openPath);
+            w.OpenImage(openPath);
         }
     }
     return a.exec();

@@ -43,6 +43,9 @@ jobs:
           version: ${{ env.QT_VERSION }}
           modules: qtmultimedia
           cache: true
+          # aqtinstall 3.3.0 predates Qt's per-toolchain Windows repository layout (Qt 6.11+);
+          # the fix is merged upstream (7e5a5c3d) but unreleased, so pin a master commit.
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git@5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7
 
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1

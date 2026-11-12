@@ -370,6 +370,13 @@ void MainWindow::OpenFolder(const QString& dirPath)
     m_browser->openFolder(dirPath);   // public entry point (command line, drag & drop)
 }
 
+void MainWindow::OpenImage(const QString& imgPath)
+{
+    // Folder first: loading it switches to browse mode, and SetImage then switches to the photo.
+    OpenFolder(QFileInfo(imgPath).absolutePath());
+    SetImage(imgPath);
+}
+
 void MainWindow::onOpenFile()
 {
     const QString path = QFileDialog::getOpenFileName(
@@ -377,7 +384,7 @@ void MainWindow::onOpenFile()
         tr("Images (*.jpg *.jpeg *.png *.heic *.heif *.bmp *.gif *.webp);;All files (*.*)"));
     if (!path.isEmpty())
     {
-        SetImage(path);
+        OpenImage(path);
     }
 }
 
@@ -766,8 +773,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         }
         else
         {
-            OpenFolder(QFileInfo(path).absolutePath());   // browse folder follows the photo
-            SetImage(path);
+            OpenImage(path);
         }
     }
 }

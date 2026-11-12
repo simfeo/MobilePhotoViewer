@@ -39,6 +39,7 @@ public:
 
     void SetImage(const QString& imgPath);
     void OpenFolder(const QString& dirPath);   // switch to browse mode on a folder
+    void OpenImage(const QString& imgPath);    // a photo from outside the browser: its folder follows
 
     // QWidget interface
 protected:
